@@ -89,6 +89,6 @@ services:
         target: /mnt/Food-11
         read_only: true
     command: >
-      bash -c "python3 -m pip install mlflow && start-notebook.sh"
+      bash -c "python3 -m pip install mlflow==2.20.2 && start-notebook.sh"
 
 
