@@ -21,6 +21,7 @@ import chi, os, time, datetime
 context.version = "1.0" 
 context.choose_project()
 context.choose_site(default="KVM@TACC")
+username = os.getenv('USER') # all exp resources will have this prefix
 ```
 :::
 
@@ -64,7 +65,6 @@ Now we can launch an instance using that lease:
 
 ::: {.cell .code}
 ```python
-username = os.getenv('USER') # all exp resources will have this prefix
 s = server.Server(
     f"node-persist-{username}", 
     image_name="CC-Ubuntu24.04",
