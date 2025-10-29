@@ -53,7 +53,7 @@ context.choose_site(default="KVM@TACC")
 ```
 
 
-We will use bring up a `m1.large` flavor server with the `CC-Ubuntu24.04` disk image. 
+We will bring up a `m1.large` flavor server with the `CC-Ubuntu24.04` disk image. 
 
 > **Note**: the following cell brings up a server only if you don't already have one with the same name! (Regardless of its error state.) If you have a server in ERROR state already, delete it first in the Horizon GUI before you run this cell.
 
