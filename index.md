@@ -44,7 +44,7 @@ Run the following cell, and make sure the correct project is selected.
 
 
 ```python
-from chi import server, context
+from chi import server, context, lease
 import chi, os, time, datetime
 
 context.version = "1.0" 
@@ -59,12 +59,33 @@ We will use bring up a `m1.large` flavor server with the `CC-Ubuntu24.04` disk i
 
 
 
+First we will reserve the VM instance for 6 hours, starting now:
+
+
+
+```python
+l = lease.Lease(f"lease-persist-{username}", duration=datetime.timedelta(hours=6))
+l.add_flavor_reservation(id=chi.server.get_flavor_id("m1.large"), amount=1)
+l.submit(idempotent=True)
+```
+
+
+```python
+l.show()
+```
+
+
+
+Now we can launch an instance using that lease:
+
+
+
 ```python
 username = os.getenv('USER') # all exp resources will have this prefix
 s = server.Server(
     f"node-persist-{username}", 
     image_name="CC-Ubuntu24.04",
-    flavor_name="m1.large"
+    flavor_name=l.get_reserved_flavors()[0].name
 )
 s.submit(idempotent=True)
 ```
@@ -730,7 +751,7 @@ The following cells run in the **Chameleon** Jupyter environment (not in the Jup
 
 ```python
 # run in Chameleon Jupyter environment
-from chi import context, server
+from chi import context, server, lease
 import chi
 import os
 
@@ -750,10 +771,11 @@ s_old.delete()
 
 ```python
 # run in Chameleon Jupyter environment
+l = lease.get_lease(f"lease-persist-{username}")
 s = server.Server(
     f"node-persist-{username}", 
     image_name="CC-Ubuntu24.04",
-    flavor_name="m1.large"
+    flavor_name=l.get_reserved_flavors()[0].name
 )
 s.submit(idempotent=True)
 ```

@@ -203,7 +203,7 @@ The following cells run in the **Chameleon** Jupyter environment (not in the Jup
 ::: {.cell .code}
 ```python
 # run in Chameleon Jupyter environment
-from chi import context, server
+from chi import context, server, lease
 import chi
 import os
 
@@ -227,10 +227,11 @@ s_old.delete()
 ::: {.cell .code}
 ```python
 # run in Chameleon Jupyter environment
+l = lease.get_lease(f"lease-persist-{username}")
 s = server.Server(
     f"node-persist-{username}", 
     image_name="CC-Ubuntu24.04",
-    flavor_name="m1.large"
+    flavor_name=l.get_reserved_flavors()[0].name
 )
 s.submit(idempotent=True)
 ```
