@@ -147,20 +147,20 @@ HOST_IP=$(curl --silent http://169.254.169.254/latest/meta-data/public-ipv4 ) do
 
 (we need to define `HOST_IP` so that we can set the MLFLow tracking URI in the Jupyter environment.)
 
-Run
+To access the Jupyter service, we will need its randomly generated secret token (which secures it from unauthorized access). We'll get this token by running `jupyter server list` inside the `jupyter` container:
 
 ```bash
 # run on node-persist
-docker logs jupyter
+docker exec jupyter jupyter server list
 ```
 
-and look for a line like
+Look for a line like
 
 ```
-http://127.0.0.1:8888/lab?token=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+http://localhost:8888/lab?token=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 ```
 
-Paste this into a browser tab, but in place of 127.0.0.1, substitute the floating IP assigned to your instance, to open the Jupyter notebook interface that is running on your compute instance. In the "work" directory, find and open "demo.ipynb".
+Paste this into a browser tab, but in place of `localhost`, substitute the floating IP assigned to your instance, to open the Jupyter notebook interface that is running *on your compute instance*. In the "work" directory, find and open "demo.ipynb".
 
 Also open the MLFlow service web UI: it is at
 
@@ -475,4 +475,3 @@ Or, to completely delete a volume (loses all the data!):
 cinder_client.volumes.delete(volume = volume)
 ```
 :::
-
