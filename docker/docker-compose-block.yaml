@@ -47,7 +47,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - /mnt/block/postgres_data:/var/lib/postgresql/data
+      - /mnt/block/postgres_data:/var/lib/postgresql
 
   mlflow:
     image: ghcr.io/mlflow/mlflow:v3.9.0
