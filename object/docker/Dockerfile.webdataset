@@ -1,0 +1,11 @@
+FROM python:3.11-slim
+
+WORKDIR /work
+
+RUN python -m pip install --no-cache-dir --upgrade pip \
+  && python -m pip install --no-cache-dir \
+    pillow==10.4.0 \
+    tqdm==4.66.5 \
+    webdataset==0.2.96
+
+CMD ["python", "-c", "print('webdataset sharding image ready')"]

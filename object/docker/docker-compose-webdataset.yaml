@@ -1,0 +1,157 @@
+name: food11-webdataset
+
+volumes:
+  food11:
+  wds_out:
+
+services:
+  extract-data:
+    image: python:3.11
+    user: root
+    volumes:
+      - food11:/data
+    working_dir: /data
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+        apt-get update
+        apt-get install -y --no-install-recommends curl unzip
+        rm -rf /var/lib/apt/lists/*
+
+        echo "Resetting dataset directory..."
+        rm -rf Food-11
+        mkdir -p Food-11
+        cd Food-11
+
+        echo "Downloading dataset zip..."
+        curl -L https://nyu.box.com/shared/static/m5kvcl25hfpljul3elhu6xz8y2w61op4.zip \
+          -o Food-11.zip
+
+        echo "Unzipping dataset..."
+        unzip -q Food-11.zip
+        rm -f Food-11.zip
+
+        echo "Listing contents of /data after extract stage:"
+        ls -l /data
+
+  transform-data:
+    image: python:3.11
+    volumes:
+      - food11:/data
+    working_dir: /data/Food-11
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+        python3 -c '
+        import os
+        import shutil
+
+        dataset_base_dir = "/data/Food-11"
+        subdirs = ["training", "validation", "evaluation"]
+        classes = [
+            "Bread", "Dairy product", "Dessert", "Egg", "Fried food",
+            "Meat", "Noodles/Pasta", "Rice", "Seafood", "Soup", "Vegetable/Fruit"
+        ]
+
+        for subdir in subdirs:
+            dir_path = os.path.join(dataset_base_dir, subdir)
+            if not os.path.exists(dir_path):
+                continue
+
+            for i, class_name in enumerate(classes):
+                class_dir = os.path.join(dir_path, f"class_{i:02d}")
+                os.makedirs(class_dir, exist_ok=True)
+                for f in os.listdir(dir_path):
+                    if f.startswith(f"{i}_"):
+                        shutil.move(
+                            os.path.join(dir_path, f),
+                            os.path.join(class_dir, f)
+                        )
+        '
+
+  shard-webdataset:
+    build:
+      context: .
+      dockerfile: Dockerfile.webdataset
+    environment:
+      - WDS_MAXCOUNT=1000
+    volumes:
+      - food11:/data:ro
+      - wds_out:/out
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+        python - <<'PY'
+        import os
+        from pathlib import Path
+        import webdataset as wds
+        from tqdm import tqdm
+
+        maxcount = int(os.environ.get("WDS_MAXCOUNT", "1000"))
+        data_root = Path("/data/Food-11")
+        out_root = Path("/out")
+
+        def iter_samples(split_dir: Path):
+            for class_dir in sorted(split_dir.glob("class_*")):
+                label = int(class_dir.name.split("_")[1])
+                for img_path in sorted(class_dir.rglob("*")):
+                    if img_path.suffix.lower() not in (".jpg", ".jpeg", ".png"):
+                        continue
+                    yield img_path, label
+
+        for split in ["training", "validation", "evaluation"]:
+            split_dir = data_root / split
+            if not split_dir.exists():
+                continue
+            split_out = out_root / split
+            split_out.mkdir(parents=True, exist_ok=True)
+            pattern = str(split_out / "shard-%06d.tar")
+            with wds.ShardWriter(pattern, maxcount=maxcount) as sink:
+                for i, (img_path, label) in enumerate(tqdm(iter_samples(split_dir), desc=f"{split}")):
+                    sink.write({
+                        "__key__": f"{split}-{i:09d}",
+                        "jpg": img_path.read_bytes(),
+                        "cls": str(label),
+                    })
+        print("Wrote shards under /out")
+        PY
+
+  upload-webdataset:
+    image: rclone/rclone:latest
+    depends_on:
+      - shard-webdataset
+    volumes:
+      - wds_out:/out:ro
+      - ~/.config/rclone/rclone.conf:/root/.config/rclone/rclone.conf:ro
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        set -e
+        if [ -z "$RCLONE_CONTAINER" ]; then
+          echo "ERROR: RCLONE_CONTAINER is not set"
+          exit 1
+        fi
+
+        echo "Cleaning up existing destination prefix..."
+        rclone delete rclone_s3:$RCLONE_CONTAINER/Food-11-webdataset --rmdirs || true
+
+        echo "Uploading shards..."
+        rclone copy /out rclone_s3:$RCLONE_CONTAINER/Food-11-webdataset \
+          --progress \
+          --transfers=8 \
+          --checkers=4 \
+          --retries=5 \
+          --retries-sleep=10s \
+          --low-level-retries=10 \
+          --timeout=120s \
+          --contimeout=60s
+
+        echo "Listing directories after upload:"
+        rclone lsd rclone_s3:$RCLONE_CONTAINER/Food-11-webdataset

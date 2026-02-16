@@ -6,7 +6,6 @@
 When we are finished, we must delete 
 
 * the VM server instance 
-* the block storage volume
 * and the object store container
 
 to make the resources available to other users.
@@ -40,35 +39,11 @@ Delete the compute instance:
 ::: {.cell .code}
 ```python
 # run in Chameleon Jupyter environment
-username = os.getenv('USER') # all exp resources will have this prefix
-s = server.get_server(f"node-persist-{username}")
+username = os.getenv('USER')
+s = server.get_server(f"node-object-chi-{username}")
 s.delete()
 ```
 :::
-
-::: {.cell .markdown}
-
-Wait a moment for this operation to be finished before you try to delete the block storage volume - you can't delete the volume when it is attached to a running instance.
-:::
-
-
-
-::: {.cell .markdown}
-
-Delete the block storage volume - in the following cell, substitute your own net ID in place of **netID**:
-
-:::
-
-
-::: {.cell .code}
-```python
-# run in Chameleon Jupyter environment
-cinder_client = chi.clients.cinder()
-volume = [v for v in cinder_client.volumes.list() if v.name=='block-persist-netID'][0] # Substitute your own net ID
-cinder_client.volumes.delete(volume = volume)
-```
-:::
-
 
 ::: {.cell .markdown}
 
@@ -108,7 +83,7 @@ In the following cell, replace **netID** with your own net ID:
 ::: {.cell .code}
 ```python
 # run in Chameleon Jupyter environment
-container_name = "object-persist-netID"
+container_name = "object-chi-netID"
 while True:
     _, objects = swift_conn.get_container(container_name, full_listing=True)
     if not objects:

@@ -1,17 +1,21 @@
 # Persistent storage on Chameleon
 
-In this tutorial, we will practice using two types of persistent storage options on Chameleon:
+This lab has two independent parts:
 
-* object storage, which you may use to e.g. store large training data sets
-* and block storage, which you may use for persistent storage for services that run on VM instances (e.g. MLFlow, Prometheus, etc.)
+* `block/`: block storage on Chameleon (persistent filesystem for a VM)
+* `object/`: object storage on Chameleon (persist training data and benchmark training input pipelines)
 
 To run this experiment, you should have already created an account on Chameleon, and become part of a project. You should also have added your SSH key to the KVM@TACC site and the CHI@TACC site.
 
 Follow along at [Persistent storage on Chameleon](https://teaching-on-testbeds.github.io/data-persist-chi/).
 
-This tutorial uses: one `m1.large` VM at KVM@TACC, and one floating IP, one 2 GiB block storage volume at KVM@TACC, and one object store container at CHI@TACC.
+Then choose:
+
+* [Block storage](https://teaching-on-testbeds.github.io/data-persist-chi/block/)
+* [Object storage](https://teaching-on-testbeds.github.io/data-persist-chi/object/)
+
+This lab uses: one VM at KVM@TACC with a floating IP, plus either a block storage volume (block part) or an object storage bucket at CHI@TACC (object part).
 
 ---
 
 This material is based upon work supported by the National Science Foundation under Grant No. 2230079.
-

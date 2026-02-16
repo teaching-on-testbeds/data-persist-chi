@@ -5,7 +5,7 @@
 
 ## Launch and set up a VM instance- with python-chi
 
-We will use the `python-chi` Python API to Chameleon to provision our VM server. 
+We will use the `python-chi` Python API to Chameleon to provision a VM instance. 
 
 We will execute the cells in this notebook inside the Chameleon Jupyter environment.
 
@@ -15,7 +15,7 @@ Run the following cell, and make sure the correct project is selected.
 
 ::: {.cell .code}
 ```python
-from chi import server, context, lease
+from chi import server, context, lease, network
 import chi, os, time, datetime
 
 context.version = "1.0" 
@@ -35,14 +35,14 @@ We will bring up a `m1.large` flavor server with the `CC-Ubuntu24.04` disk image
 
 ::: {.cell .markdown}
 
-First we will reserve the VM instance for 6 hours, starting now:
+First we will reserve the VM instance for 4 hours, starting now:
 
 :::
 
 
 ::: {.cell .code}
 ```python
-l = lease.Lease(f"lease-persist-{username}", duration=datetime.timedelta(hours=6))
+l = lease.Lease(f"lease-object-chi-{username}", duration=datetime.timedelta(hours=4))
 l.add_flavor_reservation(id=chi.server.get_flavor_id("m1.large"), amount=1)
 l.submit(idempotent=True)
 ```
@@ -66,7 +66,7 @@ Now we can launch an instance using that lease:
 ::: {.cell .code}
 ```python
 s = server.Server(
-    f"node-persist-{username}", 
+    f"node-object-chi-{username}", 
     image_name="CC-Ubuntu24.04",
     flavor_name=l.get_reserved_flavors()[0].name
 )
@@ -113,10 +113,7 @@ The following security groups will be created (if they do not already exist in o
 ```python
 security_groups = [
   {'name': "allow-ssh", 'port': 22, 'description': "Enable SSH traffic on TCP port 22"},
-  {'name': "allow-8888", 'port': 8888, 'description': "Enable TCP port 8888 (used by Jupyter)"},
-  {'name': "allow-8000", 'port': 8000, 'description': "Enable TCP port 8000 (used by MLFlow)"},
-  {'name': "allow-9000", 'port': 9000, 'description': "Enable TCP port 9000 (used by MinIO API)"},
-  {'name': "allow-9001", 'port': 9001, 'description': "Enable TCP port 9001 (used by MinIO Web UI)"}
+  {'name': "allow-8888", 'port': 8888, 'description': "Enable TCP port 8888 (used by Jupyter)"}
 ]
 ```
 :::
@@ -124,19 +121,16 @@ security_groups = [
 
 ::: {.cell .code}
 ```python
-# configure openstacksdk for actions unsupported by python-chi
-os_conn = chi.clients.connection()
-nova_server = chi.nova().servers.get(s.id)
-
 for sg in security_groups:
+  secgroup = network.SecurityGroup({
+      'name': sg['name'],
+      'description': sg['description'],
+  })
+  secgroup.add_rule(direction='ingress', protocol='tcp', port=sg['port'])
+  secgroup.submit(idempotent=True)
+  s.add_security_group(sg['name'])
 
-  if not os_conn.get_security_group(sg['name']):
-      os_conn.create_security_group(sg['name'], sg['description'])
-      os_conn.create_security_group_rule(sg['name'], port_range_min=sg['port'], port_range_max=sg['port'], protocol='tcp', remote_ip_prefix='0.0.0.0/0')
-
-  nova_server.add_security_group(sg['name'])
-
-print(f"updated security groups: {[group.name for group in nova_server.list_security_group()]}")
+print(f"updated security groups: {[sg['name'] for sg in security_groups]}")
 ```
 :::
 
@@ -196,4 +190,3 @@ where
 * in place of `A.B.C.D`, use the floating IP address you just associated to your instance.
 
 :::
-
