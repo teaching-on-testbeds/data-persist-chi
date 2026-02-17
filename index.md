@@ -71,6 +71,7 @@ Run the following cell, and make sure the correct project is selected.
 
 
 ```python
+# run in Chameleon Jupyter environment
 from chi import server, context, lease, network
 import chi, os, time, datetime
 
@@ -92,6 +93,7 @@ First we will reserve the VM instance for 4 hours, starting now:
 
 
 ```python
+# run in Chameleon Jupyter environment
 l = lease.Lease(f"lease-block-{username}", duration=datetime.timedelta(hours=4))
 l.add_flavor_reservation(id=chi.server.get_flavor_id("m1.medium"), amount=1)
 l.submit(idempotent=True)
@@ -99,6 +101,7 @@ l.submit(idempotent=True)
 
 
 ```python
+# run in Chameleon Jupyter environment
 l.show()
 ```
 
@@ -109,6 +112,7 @@ Now we can launch an instance using that lease:
 
 
 ```python
+# run in Chameleon Jupyter environment
 s = server.Server(
     f"node-block-{username}", 
     image_name="CC-Ubuntu24.04",
@@ -123,6 +127,7 @@ Then, we'll associate a floating IP with the instance:
 
 
 ```python
+# run in Chameleon Jupyter environment
 s.associate_floating_ip()
 ```
 
@@ -131,6 +136,7 @@ In the output below, make a note of the floating IP that has been assigned to yo
 
 
 ```python
+# run in Chameleon Jupyter environment
 s.refresh()
 s.show(type="widget")
 ```
@@ -143,6 +149,7 @@ The following security groups will be created (if they do not already exist in o
 
 
 ```python
+# run in Chameleon Jupyter environment
 security_groups = [
   {'name': "allow-ssh", 'port': 22, 'description': "Enable SSH traffic on TCP port 22"},
   {'name': "allow-8888", 'port': 8888, 'description': "Enable TCP port 8888 (used by Jupyter)"}
@@ -151,6 +158,7 @@ security_groups = [
 
 
 ```python
+# run in Chameleon Jupyter environment
 for sg in security_groups:
   secgroup = network.SecurityGroup({
       'name': sg['name'],
@@ -164,6 +172,7 @@ print(f"updated security groups: {[sg['name'] for sg in security_groups]}")
 ```
 
 ```python
+# run in Chameleon Jupyter environment
 s.refresh()
 s.check_connectivity()
 ```
@@ -177,6 +186,7 @@ Now, we can use `python-chi` to execute commands on the instance, to set it up. 
 
 
 ```python
+# run in Chameleon Jupyter environment
 s.execute("git clone https://github.com/teaching-on-testbeds/data-persist-chi")
 ```
 
@@ -188,6 +198,7 @@ Here, we will set up the container framework.
 
 
 ```python
+# run in Chameleon Jupyter environment
 s.execute("curl -sSL https://get.docker.com/ | sudo sh")
 s.execute("sudo groupadd -f docker; sudo usermod -aG docker $USER")
 ```
@@ -765,6 +776,12 @@ server_from_vol = os_conn.compute.wait_for_server(server_from_vol)
 server_from_vol.status
 ```
 
+```python
+# run in Chameleon Jupyter environment
+# allow inbound SSH (TCP/22)
+os_conn.compute.add_security_group_to_server(server_from_vol, "allow-ssh")
+```
+
 
 Next, associate a floating IP so that we can SSH to the instance:
 
@@ -1052,14 +1069,14 @@ Run the extract stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/local.yaml run extract-data
+docker compose -f ~/data-persist-chi/object/docker/local.yaml run --rm extract-data
 ```
 
 Run the transform stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/local.yaml run transform-data
+docker compose -f ~/data-persist-chi/object/docker/local.yaml run --rm transform-data
 ```
 
 
@@ -1306,21 +1323,21 @@ Run the extract stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/load.yaml run extract-data
+docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm extract-data
 ```
 
 Run the transform stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/load.yaml run transform-data
+docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm transform-data
 ```
 
 Run the load stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/load.yaml run load-data
+docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm load-data
 ```
 
 Confirm the upload by listing the mount (we expect a `Food-11/` directory):
@@ -1500,28 +1517,28 @@ Run the extract stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run extract-data
+docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm extract-data
 ```
 
 Run the transform stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run transform-data
+docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm transform-data
 ```
 
 Build the shards:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run shard-webdataset
+docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm shard-webdataset
 ```
 
-Upload the shards:
+Load the shards to S3:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run upload-webdataset
+docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm load-webdataset
 ```
 
 
@@ -1617,28 +1634,28 @@ Run the extract stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/lit.yaml run extract-data
+docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm extract-data
 ```
 
 Run the transform stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/lit.yaml run transform-data
+docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm transform-data
 ```
 
 Build the optimized dataset:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/lit.yaml run optimize-litdata
+docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm optimize-litdata
 ```
 
-Upload the optimized dataset:
+Load the optimized dataset to S3:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/lit.yaml run upload-litdata
+docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm load-litdata
 ```
 
 
