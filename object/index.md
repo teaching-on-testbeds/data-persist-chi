@@ -489,6 +489,8 @@ Run the load stage:
 docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm load-data
 ```
 
+After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to "Object Store" > "Containers". Click on your container (`object-chi-netID`) and you should see a `Food-11/` prefix. Inside it, expect `training/`, `validation/`, and `evaluation/`, each with `class_XX/` subdirectories and JPEG images.
+
 Confirm the upload by listing the mount (we expect a `Food-11/` directory):
 
 ```bash
@@ -688,6 +690,8 @@ Load the shards to S3:
 docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm load-webdataset
 ```
 
+After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to "Object Store" > "Containers". Click on your container (`object-chi-netID`) and you should see a `Food-11-webdataset/` prefix. Inside it, expect `training/`, `validation/`, and `evaluation/` directories with multiple `shard-*.tar` objects.
+
 Note: it is normal to occasionally see transient upload errors like "source file is being updated (size changed...)". This can happen if a shard is still being finalized while rclone starts uploading. It is fine as long as rclone succeeds on a retry and the final output shows 100% of shards transferred.
 
 
@@ -796,6 +800,8 @@ Load the optimized dataset to S3:
 docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm load-litdata
 ```
 
+After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to "Object Store" > "Containers". Click on your container (`object-chi-netID`) and you should see a `Food-11-litdata/` prefix. Inside it, expect `training/`, `validation/`, and `evaluation/` directories containing LitData metadata and chunk files.
+
 
 
 ### Run Jupyter with S3 credentials as environment variables
@@ -824,7 +830,7 @@ docker run -d --rm \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   --name jupyter \
   quay.io/jupyter/pytorch-notebook:latest \
-  bash -lc "pip -q install --no-deps litdata==0.2.32 && start-notebook.sh"
+  bash -lc "pip -q install lightning-utilities==0.15.2 && pip -q install --no-deps litdata==0.2.32 && start-notebook.sh"
 ```
 
 Get the Jupyter token:

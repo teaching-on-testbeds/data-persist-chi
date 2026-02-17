@@ -58,6 +58,8 @@ Run the load stage:
 docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm load-data
 ```
 
+After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to "Object Store" > "Containers". Click on your container (`object-chi-netID`) and you should see a `Food-11/` prefix. Inside it, expect `training/`, `validation/`, and `evaluation/`, each with `class_XX/` subdirectories and JPEG images.
+
 Confirm the upload by listing the mount (we expect a `Food-11/` directory):
 
 ```bash

@@ -58,6 +58,8 @@ Load the optimized dataset to S3:
 docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm load-litdata
 ```
 
+After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to "Object Store" > "Containers". Click on your container (`object-chi-netID`) and you should see a `Food-11-litdata/` prefix. Inside it, expect `training/`, `validation/`, and `evaluation/` directories containing LitData metadata and chunk files.
+
 :::
 
 ::: {.cell .markdown}
@@ -88,7 +90,7 @@ docker run -d --rm \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   --name jupyter \
   quay.io/jupyter/pytorch-notebook:latest \
-  bash -lc "pip -q install --no-deps litdata==0.2.32 && start-notebook.sh"
+  bash -lc "pip -q install lightning-utilities==0.15.2 && pip -q install --no-deps litdata==0.2.32 && start-notebook.sh"
 ```
 
 Get the Jupyter token:
