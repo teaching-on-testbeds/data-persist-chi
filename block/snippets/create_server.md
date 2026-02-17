@@ -42,7 +42,7 @@ First we will reserve the VM instance for 4 hours, starting now:
 
 ::: {.cell .code}
 ```python
-l = lease.Lease(f"lease-block-chi-{username}", duration=datetime.timedelta(hours=4))
+l = lease.Lease(f"lease-block-{username}", duration=datetime.timedelta(hours=4))
 l.add_flavor_reservation(id=chi.server.get_flavor_id("m1.medium"), amount=1)
 l.submit(idempotent=True)
 ```
@@ -66,7 +66,7 @@ Now we can launch an instance using that lease:
 ::: {.cell .code}
 ```python
 s = server.Server(
-    f"node-block-chi-{username}", 
+    f"node-block-{username}", 
     image_name="CC-Ubuntu24.04",
     flavor_name=l.get_reserved_flavors()[0].name
 )

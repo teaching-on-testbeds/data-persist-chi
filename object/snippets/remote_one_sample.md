@@ -9,6 +9,20 @@ The DataLoader will load each sample by making a separate S3 request for that im
 
 We will run a benchmark notebook that uses `fsspec` to open remote objects and `PIL` to decode images.
 
+This benchmark assumes the dataset is already uploaded as one object per image under `s3://object-chi-netID/Food-11/`, for example:
+
+```text
+s3://object-chi-netID/Food-11/
+  evaluation/
+    class_00/
+      0_123.jpg
+      ...
+    class_01/
+      1_456.jpg
+      ...
+    ...
+```
+
 :::
 
 ::: {.cell .markdown}
@@ -24,9 +38,10 @@ In the following command:
 * replace **netID** in the bucket name
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker run -d --rm \
   -p 8888:8888 \
+  --shm-size 8G \
   -e AWS_ACCESS_KEY_ID=ACCESS_KEY_ID \
   -e AWS_SECRET_ACCESS_KEY=SECRET_ACCESS_KEY \
   -e S3_ENDPOINT_URL=https://chi.tacc.chameleoncloud.org:7480 \
@@ -35,13 +50,13 @@ docker run -d --rm \
   -e FOOD11_SPLIT=evaluation \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   --name jupyter \
-  quay.io/jupyter/pytorch-notebook:python-3.11
+  quay.io/jupyter/pytorch-notebook:latest
 ```
 
 Get the Jupyter token:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker exec jupyter jupyter server list
 ```
 
@@ -49,10 +64,12 @@ Open the printed URL in your browser, substituting the floating IP for `localhos
 
 In the Jupyter UI, open and run `remote_one_sample.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
 
+In this notebook, the Dataset is a small custom `torch.utils.data.Dataset` that first lists objects once to build an index (not timed), then loads each sample by doing an S3 GET for that one image via `fsspec`, decoding with PIL, and applying the usual resize/crop/normalize transform. The DataLoader batches those decoded tensors.
+
 Stop the container when you are done:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker stop jupyter
 ```
 

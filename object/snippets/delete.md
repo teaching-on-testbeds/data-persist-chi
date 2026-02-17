@@ -40,7 +40,7 @@ Delete the compute instance:
 ```python
 # run in Chameleon Jupyter environment
 username = os.getenv('USER')
-s = server.get_server(f"node-object-chi-{username}")
+s = server.get_server(f"node-object-{username}")
 s.delete()
 ```
 :::

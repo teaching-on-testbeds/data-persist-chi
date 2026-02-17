@@ -2,6 +2,12 @@
 
 # Persistent storage on Chameleon
 
+You've done really well operationalizing the infrastructure and configuration of the runtime environment at GourmetGram! 
+Next, you're going to dig deeper into each stage of your model pipeline. But, there are two major issues you need to address first:
+
+* Applications and services in GourmetGram - including Jupyter services for ML experimentation, model registry services, even application services - save all their data to the *ephemeral* disk of the compute instances that they are running on. When the compute instance ends, the data is lost.
+* The training data for your food classifier model is also not persisted anywhere. Right now, you're only training on external data, which you can re-import at any time. But eventually, you will want to train on production data. You need an organized data repository in which to persist training data, and you want to make sure that when training your food classifier model, you will be able to pull data at a high enough rate to keep your powerful GPUs busy during training.
+
 This lab has two independent parts:
 
 * `block/`: block storage volumes on Chameleon (persistent filesystem for a VM)
@@ -86,7 +92,7 @@ First we will reserve the VM instance for 4 hours, starting now:
 
 
 ```python
-l = lease.Lease(f"lease-block-chi-{username}", duration=datetime.timedelta(hours=4))
+l = lease.Lease(f"lease-block-{username}", duration=datetime.timedelta(hours=4))
 l.add_flavor_reservation(id=chi.server.get_flavor_id("m1.medium"), amount=1)
 l.submit(idempotent=True)
 ```
@@ -104,7 +110,7 @@ Now we can launch an instance using that lease:
 
 ```python
 s = server.Server(
-    f"node-block-chi-{username}", 
+    f"node-block-{username}", 
     image_name="CC-Ubuntu24.04",
     flavor_name=l.get_reserved_flavors()[0].name
 )
@@ -244,13 +250,13 @@ Now, the "Volumes" overview page in the Horizon GUI should show something like f
 ```
 | Name                | Description | Size | Status | Group | Type     | Attached To                     | Availability Zone | Bootable | Encrypted |
 |---------------------|-------------|------|--------|-------|----------|---------------------------------|-------------------|----------|-----------|
-| block-persist-netID | -           | 2GiB | In-use | -     | ceph-ssd | /dev/vdb on node-block-chi-netID | nova            | No       | No        |
+| block-persist-netID | -           | 2GiB | In-use | -     | ceph-ssd | /dev/vdb on node-block-netID     | nova            | No       | No        |
 ```
 
 On the instance, let's confirm that we can see the block storage volume. Run
 
 ```bash
-# run on node-block-chi
+# run on node-block
 lsblk
 ```
 
@@ -263,7 +269,7 @@ The volume is essentially a raw disk. Before we can use it **for the first time*
 First, we create a partition with an `ext4` filesystem, occupying the entire volume:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 sudo parted -s /dev/vdb mklabel gpt
 sudo parted -s /dev/vdb mkpart primary ext4 0% 100%
 ```
@@ -271,21 +277,21 @@ sudo parted -s /dev/vdb mkpart primary ext4 0% 100%
 Verify that we now have the partition `vdb1` in the output of 
 
 ```bash
-# run on node-block-chi
+# run on node-block
 lsblk
 ```
 
 Next, we format the partition:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 sudo mkfs.ext4 /dev/vdb1
 ```
 
 Finally, we can create a directory in the local filesystem, mount the partition to that directory:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 sudo mkdir -p /mnt/block
 sudo mount /dev/vdb1 /mnt/block
 ```
@@ -293,7 +299,7 @@ sudo mount /dev/vdb1 /mnt/block
 and change the owner of that directory to the `cc` user:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 sudo chown -R cc /mnt/block
 sudo chgrp -R cc /mnt/block
 ```
@@ -301,7 +307,7 @@ sudo chgrp -R cc /mnt/block
 Run
 
 ```bash
-# run on node-block-chi
+# run on node-block
 df -h
 ```
 
@@ -337,7 +343,7 @@ Then we will edit and save a notebook into that directory, and verify that the n
 First, we will create a persistent working directory on the block storage volume, and copy a starter notebook into it:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 mkdir -p /mnt/block/workspace
 cp -r ~/data-persist-chi/block/workspace/* /mnt/block/workspace/
 ```
@@ -345,9 +351,10 @@ cp -r ~/data-persist-chi/block/workspace/* /mnt/block/workspace/
 Now we can bring up the Jupyter service with `docker run`. This will mount `/mnt/block/workspace` into the container at `/home/jovyan/work`.
 
 ```bash
-# run on node-block-chi
+# run on node-block
 docker run -d --rm \
   -p 8888:8888 \
+  --shm-size 8G \
   -v /mnt/block/workspace:/home/jovyan/work \
   --name jupyter \
   quay.io/jupyter/minimal-notebook:latest
@@ -356,7 +363,7 @@ docker run -d --rm \
 To access the Jupyter service, we will need its randomly generated secret token (which secures it from unauthorized access). We'll get this token by running `jupyter server list` inside the `jupyter` container:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 docker exec jupyter jupyter server list
 ```
 
@@ -375,13 +382,15 @@ Run the notebook cell, which writes a small file named `persisted.txt` into the 
 To verify that the notebook and `persisted.txt` are on the block storage volume, run on the host:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 ls -l /mnt/block/workspace/
 ```
 
 
 
 Now, let's confirm that data on the block storage volume persists beyond the lifetime of the compute instance. We will now delete the compute instance.
+
+Before you delete the instance (or stop the container), close the browser tab that is connected to the Jupyter workspace running on the compute instance.
 
 The following cells run in the **Chameleon** Jupyter environment (not in the Jupyter environment that you are hosting on your compute instance!)
 
@@ -402,15 +411,15 @@ username = os.getenv('USER') # exp resources will have this suffix
 ```python
 # run in Chameleon Jupyter environment
 # delete the old server instance!
-s_old = server.get_server(f"node-block-chi-{username}")
+s_old = server.get_server(f"node-block-{username}")
 s_old.delete()
 ```
 
 ```python
 # run in Chameleon Jupyter environment
-l = lease.get_lease(f"lease-block-chi-{username}")
+l = lease.get_lease(f"lease-block-{username}")
 s = server.Server(
-    f"node-block-chi-{username}", 
+    f"node-block-{username}", 
     image_name="CC-Ubuntu24.04",
     flavor_name=l.get_reserved_flavors()[0].name
 )
@@ -422,6 +431,17 @@ s.submit(idempotent=True)
 s.associate_floating_ip()
 ```
 
+
+```python
+# run in Chameleon Jupyter environment
+security_groups = [
+  {'name': "allow-ssh", 'port': 22, 'description': "Enable SSH traffic on TCP port 22"},
+  {'name': "allow-8888", 'port': 8888, 'description': "Enable TCP port 8888 (used by Jupyter)"}
+]
+
+for sg in security_groups:
+  s.add_security_group(sg['name'])
+```
 
 ```python
 # run in Chameleon Jupyter environment
@@ -437,18 +457,6 @@ s.refresh()
 s.show(type="widget")
 ```
 
-
-
-```python
-# run in Chameleon Jupyter environment
-security_groups = [
-  {'name': "allow-ssh", 'port': 22, 'description': "Enable SSH traffic on TCP port 22"},
-  {'name': "allow-8888", 'port': 8888, 'description': "Enable TCP port 8888 (used by Jupyter)"}
-]
-
-for sg in security_groups:
-  s.add_security_group(sg['name'])
-```
 
 
 ```python
@@ -469,7 +477,9 @@ This cell will attach the block storage volume named "block-persist-**netID**" t
 
 ```python
 # run in Chameleon Jupyter environment
-volume = storage.get_volume("block-persist-netID")  # Substitute your own net ID
+# volume = storage.get_volume("block-persist-netID")  # Substitute your own net ID
+cinder_client = chi.clients.cinder()
+volume = [v for v in cinder_client.volumes.list() if v.name == "block-persist-netID"][0]
 s.attach_volume(volume.id)
 ```
 
@@ -488,7 +498,7 @@ Connect to the new instance over SSH. Mount the block storage volume:
 
 
 ```bash
-# run on node-block-chi
+# run on node-block
 sudo mkdir -p /mnt/block
 sudo mount /dev/vdb1 /mnt/block
 ```
@@ -496,7 +506,7 @@ sudo mount /dev/vdb1 /mnt/block
 and confirm that it is not empty:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 ls /mnt/block
 ```
 
@@ -505,7 +515,7 @@ for example, you can see your saved notebook on the persistent volume:
 
 
 ```bash
-# run on node-block-chi
+# run on node-block
 ls /mnt/block/workspace
 ```
 
@@ -513,9 +523,10 @@ ls /mnt/block/workspace
 Bring up the Jupyter service again:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 docker run -d --rm \
   -p 8888:8888 \
+  --shm-size 8G \
   -v /mnt/block/workspace:/home/jovyan/work \
   --name jupyter \
   quay.io/jupyter/minimal-notebook:latest
@@ -524,7 +535,7 @@ docker run -d --rm \
 To access the Jupyter service, get its token again:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 docker exec jupyter jupyter server list
 ```
 
@@ -535,7 +546,7 @@ Open the URL in your browser (substituting the floating IP for `localhost`) and 
 On the VM, stop the Jupyter container and unmount the volume:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 docker stop jupyter
 sudo umount /mnt/block
 ```
@@ -556,8 +567,10 @@ In the Chameleon Jupyter environment, detach the volume from the server and dele
 
 ```python
 # run in Chameleon Jupyter environment
-volume = storage.get_volume("block-persist-netID")  # Substitute your own net ID
-s = server.get_server(f"node-block-chi-{username}")
+# volume = storage.get_volume("block-persist-netID")  # Substitute your own net ID
+cinder_client = chi.clients.cinder()
+volume = [v for v in cinder_client.volumes.list() if v.name == "block-persist-netID"][0]
+s = server.get_server(f"node-block-{username}")
 
 s.detach_volume(volume.id)
 ```
@@ -591,10 +604,16 @@ context.choose_project()
 context.choose_site(default="KVM@TACC")
 
 username = os.getenv('USER')
+```
 
+```python
+# run in Chameleon Jupyter environment
 # reuse the lease created earlier
-l = lease.get_lease(f"lease-block-chi-{username}")
+l = lease.get_lease(f"lease-block-{username}")
+```
 
+```python
+# run in Chameleon Jupyter environment
 # get the Cinder Python client configured by python-chi
 cinder_client = chi.clients.cinder()
 ```
@@ -622,7 +641,8 @@ We can attach the volume to a compute instance:
 
 ```python
 # run in Chameleon Jupyter environment
-server_id = server.get_server(f"node-block-chi-{username}").id
+# server_id = server.get_server(f"node-block-{username}").id
+server_id = chi.nova().servers.find(name=f"node-block-{username}").id
 volume_manager = chi.nova().volumes
 volume_manager.create_server_volume(server_id=server_id, volume_id=volume.id)
 
@@ -652,7 +672,8 @@ At this point, we are done with the server we have been using, so we will delete
 
 ```python
 # run in Chameleon Jupyter environment
-s = server.get_server(f"node-block-chi-{username}")
+# s = server.get_server(f"node-block-{username}")
+s = chi.nova().servers.find(name=f"node-block-{username}")
 s.delete()
 ```
 
@@ -787,7 +808,7 @@ s_boot.delete()
 ```
 
 
-**Comparing boot-from-volume vs attaching a non-bootable data volume - **
+**Comparing boot-from-volume vs attaching a non-bootable data volume** - 
 
 When we boot-from-volume:
 
@@ -857,7 +878,7 @@ First we will reserve the VM instance for 4 hours, starting now:
 
 
 ```python
-l = lease.Lease(f"lease-object-chi-{username}", duration=datetime.timedelta(hours=4))
+l = lease.Lease(f"lease-object-{username}", duration=datetime.timedelta(hours=4))
 l.add_flavor_reservation(id=chi.server.get_flavor_id("m1.large"), amount=1)
 l.submit(idempotent=True)
 ```
@@ -875,7 +896,7 @@ Now we can launch an instance using that lease:
 
 ```python
 s = server.Server(
-    f"node-object-chi-{username}", 
+    f"node-object-{username}", 
     image_name="CC-Ubuntu24.04",
     flavor_name=l.get_reserved_flavors()[0].name
 )
@@ -984,25 +1005,50 @@ We will use Docker Compose to run a simple ETL pipeline that prepares Food11 ins
 
 ### ETL pipeline (extract + transform)
 
-The ETL pipeline stages are defined in `~/data-persist-chi/object/docker/docker-compose-local-baseline.yaml`.
+The ETL pipeline stages are defined in `~/data-persist-chi/object/docker/local.yaml`.
 
 It uses a shared Docker volume named `food11_local_baseline`:
 
 * `extract-data` downloads and unzips Food11 into the volume.
 * `transform-data` reorganizes images into class subdirectories so they can be read by `ImageFolder`.
 
+After the transform stage, the volume contains a normal directory tree (one file per image) that looks like this when mounted at `/mnt/Food-11`:
+
+```text
+/mnt/Food-11/
+  training/
+    class_00/
+      0_0.jpg
+      0_1.jpg
+      ...
+    class_01/
+      1_0.jpg
+      ...
+    ...
+  validation/
+    class_00/
+      0_0.jpg
+      ...
+    ...
+  evaluation/
+    class_00/
+      0_0.jpg
+      ...
+    ...
+```
+
 Run the extract stage:
 
 ```bash
-# run on node-object-chi
-docker compose -f ~/data-persist-chi/object/docker/docker-compose-local-baseline.yaml run extract-data
+# run on node-object
+docker compose -f ~/data-persist-chi/object/docker/local.yaml run extract-data
 ```
 
 Run the transform stage:
 
 ```bash
-# run on node-object-chi
-docker compose -f ~/data-persist-chi/object/docker/docker-compose-local-baseline.yaml run transform-data
+# run on node-object
+docker compose -f ~/data-persist-chi/object/docker/local.yaml run transform-data
 ```
 
 
@@ -1017,20 +1063,21 @@ Now run a Jupyter container and mount:
 Run:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker run -d --rm \
   -p 8888:8888 \
+  --shm-size 8G \
   -e FOOD11_DATA_DIR=/mnt/Food-11 \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   -v food11_local_baseline:/mnt/Food-11:ro \
   --name jupyter \
-  quay.io/jupyter/pytorch-notebook:python-3.11
+  quay.io/jupyter/pytorch-notebook:latest
 ```
 
 To access the Jupyter service, get its token:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker exec jupyter jupyter server list
 ```
 
@@ -1038,10 +1085,12 @@ Open the printed URL in your browser, substituting the floating IP for `localhos
 
 In the Jupyter UI, open and run `imagefolder_local.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
 
+In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, pointing at a local directory (`/mnt/Food-11/<split>`). The DataLoader reads individual image files from the mounted volume, decodes them (PIL), applies a resize/crop/normalize transform, and batches tensors.
+
 When you are done with the local baseline, stop the container:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker stop jupyter
 ```
 
@@ -1127,14 +1176,14 @@ In this part, we will mount the S3 bucket as a local filesystem using `rclone mo
 On the VM instance, install `rclone`:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 curl https://rclone.org/install.sh | sudo bash
 ```
 
 We also need to allow mounts created by our user to be visible to other users (including the Docker daemon / containers):
 
 ```bash
-# run on node-object-chi
+# run on node-object
 sudo sed -i '/^#user_allow_other/s/^#//' /etc/fuse.conf
 ```
 
@@ -1145,7 +1194,7 @@ sudo sed -i '/^#user_allow_other/s/^#//' /etc/fuse.conf
 Create the rclone config file:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 mkdir -p ~/.config/rclone
 nano ~/.config/rclone/rclone.conf
 ```
@@ -1166,7 +1215,7 @@ Save (Ctrl + O) and exit (Ctrl + X).
 Test that rclone can talk to S3:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 rclone lsd rclone_s3:
 ```
 
@@ -1177,7 +1226,7 @@ rclone lsd rclone_s3:
 We will mount the bucket at `/tmp/rclone-tests/object`:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 sudo mkdir -p /tmp/rclone-tests/object
 sudo chown -R cc /tmp/rclone-tests/object
 sudo chgrp -R cc /tmp/rclone-tests/object
@@ -1186,14 +1235,13 @@ sudo chgrp -R cc /tmp/rclone-tests/object
 Mount the bucket (replace **netID**):
 
 ```bash
-# run on node-object-chi
+# run on node-object
 rclone mount rclone_s3:object-chi-netID /tmp/rclone-tests/object \
   --read-only \
   --allow-other \
   --vfs-cache-mode off \
   --daemon
 ```
-
 
 
 
@@ -1210,44 +1258,64 @@ In this part, we will:
 
 ### ETL pipeline (extract + transform + load to S3)
 
-The pipeline stages are defined in `~/data-persist-chi/object/docker/docker-compose-object-load.yaml`.
+The pipeline stages are defined in `~/data-persist-chi/object/docker/load.yaml`.
 
 It will upload the Food11 directory tree to:
 
 * `rclone_s3:object-chi-netID/Food-11/`
 
+The load stage uploads normal files (one object per image) arranged to work well with ImageFolder. After the upload, the S3 prefix looks like this:
+
+```text
+s3://object-chi-netID/Food-11/
+  training/
+    class_00/
+      0_0.jpg
+      0_1.jpg
+      ...
+    ...
+  validation/
+    class_00/
+      ...
+    ...
+  evaluation/
+    class_00/
+      ...
+    ...
+```
+
 First, set the bucket/container name (replace **netID**):
 
 ```bash
-# run on node-object-chi
+# run on node-object
 export RCLONE_CONTAINER=object-chi-netID
 ```
 
 Run the extract stage:
 
 ```bash
-# run on node-object-chi
-docker compose -f ~/data-persist-chi/object/docker/docker-compose-object-load.yaml run extract-data
+# run on node-object
+docker compose -f ~/data-persist-chi/object/docker/load.yaml run extract-data
 ```
 
 Run the transform stage:
 
 ```bash
-# run on node-object-chi
-docker compose -f ~/data-persist-chi/object/docker/docker-compose-object-load.yaml run transform-data
+# run on node-object
+docker compose -f ~/data-persist-chi/object/docker/load.yaml run transform-data
 ```
 
 Run the load stage:
 
 ```bash
-# run on node-object-chi
-docker compose -f ~/data-persist-chi/object/docker/docker-compose-object-load.yaml run load-data
+# run on node-object
+docker compose -f ~/data-persist-chi/object/docker/load.yaml run load-data
 ```
 
 Confirm the upload by listing the mount (we expect a `Food-11/` directory):
 
 ```bash
-# run on node-object-chi
+# run on node-object
 ls /tmp/rclone-tests/object
 ```
 
@@ -1260,20 +1328,21 @@ Start a Jupyter container and pass the mount into the container at `/mnt/Food-11
 Note: when bind-mounting a FUSE filesystem into Docker, prefer `--mount`.
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker run -d --rm \
   -p 8888:8888 \
-  -e FOOD11_DATA_DIR=/mnt/Food-11/Food-11 \
+  --shm-size 8G \
+  -e FOOD11_DATA_DIR=/mnt/Food-11 \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
-  --mount type=bind,source=/tmp/rclone-tests/object,target=/mnt/Food-11,readonly \
+  --mount type=bind,source=/tmp/rclone-tests/object/Food-11,target=/mnt/Food-11,readonly \
   --name jupyter \
-  quay.io/jupyter/pytorch-notebook:python-3.11
+  quay.io/jupyter/pytorch-notebook:latest
 ```
 
 Get the Jupyter token:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker exec jupyter jupyter server list
 ```
 
@@ -1281,10 +1350,12 @@ Open the printed URL in your browser, substituting the floating IP for `localhos
 
 In the Jupyter UI, open and run `imagefolder_rclone_mount.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
 
+In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, but the filesystem backing it is an rclone FUSE mount of the S3 bucket. The DataLoader still does ordinary file opens and reads, but every read is translated into S3 GET requests under the hood.
+
 Stop the container when you are done:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker stop jupyter
 ```
 
@@ -1295,7 +1366,7 @@ docker stop jupyter
 When you are ready to unmount:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 fusermount -u /tmp/rclone-tests/object
 ```
 
@@ -1308,6 +1379,20 @@ In this part, we will read training data directly from S3 without mounting it as
 The DataLoader will load each sample by making a separate S3 request for that image. This pattern is simple, but it often performs poorly at scale because it has high per-sample overhead.
 
 We will run a benchmark notebook that uses `fsspec` to open remote objects and `PIL` to decode images.
+
+This benchmark assumes the dataset is already uploaded as one object per image under `s3://object-chi-netID/Food-11/`, for example:
+
+```text
+s3://object-chi-netID/Food-11/
+  evaluation/
+    class_00/
+      0_123.jpg
+      ...
+    class_01/
+      1_456.jpg
+      ...
+    ...
+```
 
 
 
@@ -1322,9 +1407,10 @@ In the following command:
 * replace **netID** in the bucket name
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker run -d --rm \
   -p 8888:8888 \
+  --shm-size 8G \
   -e AWS_ACCESS_KEY_ID=ACCESS_KEY_ID \
   -e AWS_SECRET_ACCESS_KEY=SECRET_ACCESS_KEY \
   -e S3_ENDPOINT_URL=https://chi.tacc.chameleoncloud.org:7480 \
@@ -1333,13 +1419,13 @@ docker run -d --rm \
   -e FOOD11_SPLIT=evaluation \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   --name jupyter \
-  quay.io/jupyter/pytorch-notebook:python-3.11
+  quay.io/jupyter/pytorch-notebook:latest
 ```
 
 Get the Jupyter token:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker exec jupyter jupyter server list
 ```
 
@@ -1347,10 +1433,12 @@ Open the printed URL in your browser, substituting the floating IP for `localhos
 
 In the Jupyter UI, open and run `remote_one_sample.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
 
+In this notebook, the Dataset is a small custom `torch.utils.data.Dataset` that first lists objects once to build an index (not timed), then loads each sample by doing an S3 GET for that one image via `fsspec`, decoding with PIL, and applying the usual resize/crop/normalize transform. The DataLoader batches those decoded tensors.
+
 Stop the container when you are done:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker stop jupyter
 ```
 
@@ -1366,45 +1454,63 @@ Compared to reading one S3 object per sample, sharding reduces per-sample overhe
 
 ### ETL pipeline (extract + transform + shard + upload)
 
-The pipeline stages are defined in `~/data-persist-chi/object/docker/docker-compose-webdataset.yaml`.
+The pipeline stages are defined in `~/data-persist-chi/object/docker/wds.yaml`.
 
 It will upload tar shards to:
 
 * `rclone_s3:object-chi-netID/Food-11-webdataset/`
 
+In this ETL, we take the same images, but we pack many samples into larger `.tar` shard objects. After upload, the prefix looks like:
+
+```text
+s3://object-chi-netID/Food-11-webdataset/
+  training/
+    shard-000000.tar
+    shard-000001.tar
+    ...
+  validation/
+    shard-000000.tar
+    ...
+  evaluation/
+    shard-000000.tar
+    ...
+```
+
+Each tar file contains many samples; for each sample key there is a `*.jpg` payload (image bytes) and a `*.cls` payload (the integer label as text).
+
 First, set the bucket/container name (replace **netID**):
 
 ```bash
-# run on node-object-chi
+# run on node-object
 export RCLONE_CONTAINER=object-chi-netID
 ```
 
 Run the extract stage:
 
 ```bash
-# run on node-object-chi
-docker compose -f ~/data-persist-chi/object/docker/docker-compose-webdataset.yaml run extract-data
+# run on node-object
+docker compose -f ~/data-persist-chi/object/docker/wds.yaml run extract-data
 ```
 
 Run the transform stage:
 
 ```bash
-# run on node-object-chi
-docker compose -f ~/data-persist-chi/object/docker/docker-compose-webdataset.yaml run transform-data
+# run on node-object
+docker compose -f ~/data-persist-chi/object/docker/wds.yaml run transform-data
 ```
 
 Build the shards:
 
 ```bash
-# run on node-object-chi
-docker compose -f ~/data-persist-chi/object/docker/docker-compose-webdataset.yaml run shard-webdataset
+# run on node-object
+docker compose -f ~/data-persist-chi/object/docker/wds.yaml run shard-webdataset
 ```
 
 Upload the shards:
 
 ```bash
-# run on node-object-chi
-docker compose -f ~/data-persist-chi/object/docker/docker-compose-webdataset.yaml run upload-webdataset
+# run on node-object
+docker compose -f ~/data-persist-chi/object/docker/wds.yaml run upload-webdataset
 ```
 
 
@@ -1420,9 +1526,10 @@ In the following command:
 * replace **netID** in the bucket name
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker run -d --rm \
   -p 8888:8888 \
+  --shm-size 8G \
   -e AWS_ACCESS_KEY_ID=ACCESS_KEY_ID \
   -e AWS_SECRET_ACCESS_KEY=SECRET_ACCESS_KEY \
   -e S3_ENDPOINT_URL=https://chi.tacc.chameleoncloud.org:7480 \
@@ -1431,13 +1538,13 @@ docker run -d --rm \
   -e FOOD11_SPLIT=evaluation \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   --name jupyter \
-  quay.io/jupyter/pytorch-notebook:python-3.11
+  quay.io/jupyter/pytorch-notebook:latest
 ```
 
 Get the Jupyter token:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker exec jupyter jupyter server list
 ```
 
@@ -1445,10 +1552,12 @@ Open the printed URL in your browser, substituting the floating IP for `localhos
 
 In the Jupyter UI, open and run `webdataset.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
 
+In this notebook, the Dataset is an `IterableDataset` that assigns shard files across DataLoader workers, opens each shard via `fsspec`, streams the tar entries, and yields `(image_tensor, label)` pairs. The DataLoader batches those streamed samples.
+
 Stop the container when you are done:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker stop jupyter
 ```
 
@@ -1462,45 +1571,63 @@ In this part, we will write the dataset in a LitData optimized format and then s
 
 ### ETL pipeline (extract + transform + optimize + upload)
 
-The pipeline stages are defined in `~/data-persist-chi/object/docker/docker-compose-litdata.yaml`.
+The pipeline stages are defined in `~/data-persist-chi/object/docker/lit.yaml`.
 
 It will upload optimized data to:
 
 * `rclone_s3:object-chi-netID/Food-11-litdata/`
 
+Instead of uploading individual image files, this ETL uses `litdata.optimize(...)` to write a streaming-friendly dataset format. The output is a directory per split with multiple chunk files plus metadata (exact filenames are implementation-specific), for example:
+
+```text
+s3://object-chi-netID/Food-11-litdata/
+  training/
+    <metadata files>
+    <chunk files>
+    ...
+  validation/
+    <metadata files>
+    <chunk files>
+    ...
+  evaluation/
+    <metadata files>
+    <chunk files>
+    ...
+```
+
 First, set the bucket/container name (replace **netID**):
 
 ```bash
-# run on node-object-chi
+# run on node-object
 export RCLONE_CONTAINER=object-chi-netID
 ```
 
 Run the extract stage:
 
 ```bash
-# run on node-object-chi
-docker compose -f ~/data-persist-chi/object/docker/docker-compose-litdata.yaml run extract-data
+# run on node-object
+docker compose -f ~/data-persist-chi/object/docker/lit.yaml run extract-data
 ```
 
 Run the transform stage:
 
 ```bash
-# run on node-object-chi
-docker compose -f ~/data-persist-chi/object/docker/docker-compose-litdata.yaml run transform-data
+# run on node-object
+docker compose -f ~/data-persist-chi/object/docker/lit.yaml run transform-data
 ```
 
 Build the optimized dataset:
 
 ```bash
-# run on node-object-chi
-docker compose -f ~/data-persist-chi/object/docker/docker-compose-litdata.yaml run optimize-litdata
+# run on node-object
+docker compose -f ~/data-persist-chi/object/docker/lit.yaml run optimize-litdata
 ```
 
 Upload the optimized dataset:
 
 ```bash
-# run on node-object-chi
-docker compose -f ~/data-persist-chi/object/docker/docker-compose-litdata.yaml run upload-litdata
+# run on node-object
+docker compose -f ~/data-persist-chi/object/docker/lit.yaml run upload-litdata
 ```
 
 
@@ -1518,9 +1645,10 @@ In the following command:
 This step also installs `litdata` in the Jupyter container before starting the notebook server.
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker run -d --rm \
   -p 8888:8888 \
+  --shm-size 8G \
   -e AWS_ACCESS_KEY_ID=ACCESS_KEY_ID \
   -e AWS_SECRET_ACCESS_KEY=SECRET_ACCESS_KEY \
   -e S3_ENDPOINT_URL=https://chi.tacc.chameleoncloud.org:7480 \
@@ -1529,14 +1657,14 @@ docker run -d --rm \
   -e FOOD11_SPLIT=evaluation \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   --name jupyter \
-  quay.io/jupyter/pytorch-notebook:python-3.11 \
+  quay.io/jupyter/pytorch-notebook:latest \
   bash -lc "pip -q install litdata==0.2.32 && start-notebook.sh"
 ```
 
 Get the Jupyter token:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker exec jupyter jupyter server list
 ```
 
@@ -1544,10 +1672,12 @@ Open the printed URL in your browser, substituting the floating IP for `localhos
 
 In the Jupyter UI, open and run `litdata_streaming.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
 
+In this notebook, the Dataset is `litdata.StreamingDataset`, pointing at `s3://<bucket>/<prefix>/<split>`. It streams data into a local cache directory inside the container (`./litdata_cache` by default), and the `StreamingDataLoader` iterates it with worker processes. We decode each sample to a tensor in the collate function and then measure steady-state throughput.
+
 Stop the container when you are done:
 
 ```bash
-# run on node-object-chi
+# run on node-object
 docker stop jupyter
 ```
 
@@ -1586,7 +1716,7 @@ Delete the compute instance:
 ```python
 # run in Chameleon Jupyter environment
 username = os.getenv('USER')
-s = server.get_server(f"node-object-chi-{username}")
+s = server.get_server(f"node-object-{username}")
 s.delete()
 ```
 

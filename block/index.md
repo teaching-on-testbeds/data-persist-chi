@@ -54,7 +54,7 @@ First we will reserve the VM instance for 4 hours, starting now:
 
 
 ```python
-l = lease.Lease(f"lease-block-chi-{username}", duration=datetime.timedelta(hours=4))
+l = lease.Lease(f"lease-block-{username}", duration=datetime.timedelta(hours=4))
 l.add_flavor_reservation(id=chi.server.get_flavor_id("m1.medium"), amount=1)
 l.submit(idempotent=True)
 ```
@@ -72,7 +72,7 @@ Now we can launch an instance using that lease:
 
 ```python
 s = server.Server(
-    f"node-block-chi-{username}", 
+    f"node-block-{username}", 
     image_name="CC-Ubuntu24.04",
     flavor_name=l.get_reserved_flavors()[0].name
 )
@@ -212,13 +212,13 @@ Now, the "Volumes" overview page in the Horizon GUI should show something like f
 ```
 | Name                | Description | Size | Status | Group | Type     | Attached To                     | Availability Zone | Bootable | Encrypted |
 |---------------------|-------------|------|--------|-------|----------|---------------------------------|-------------------|----------|-----------|
-| block-persist-netID | -           | 2GiB | In-use | -     | ceph-ssd | /dev/vdb on node-block-chi-netID | nova            | No       | No        |
+| block-persist-netID | -           | 2GiB | In-use | -     | ceph-ssd | /dev/vdb on node-block-netID     | nova            | No       | No        |
 ```
 
 On the instance, let's confirm that we can see the block storage volume. Run
 
 ```bash
-# run on node-block-chi
+# run on node-block
 lsblk
 ```
 
@@ -231,7 +231,7 @@ The volume is essentially a raw disk. Before we can use it **for the first time*
 First, we create a partition with an `ext4` filesystem, occupying the entire volume:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 sudo parted -s /dev/vdb mklabel gpt
 sudo parted -s /dev/vdb mkpart primary ext4 0% 100%
 ```
@@ -239,21 +239,21 @@ sudo parted -s /dev/vdb mkpart primary ext4 0% 100%
 Verify that we now have the partition `vdb1` in the output of 
 
 ```bash
-# run on node-block-chi
+# run on node-block
 lsblk
 ```
 
 Next, we format the partition:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 sudo mkfs.ext4 /dev/vdb1
 ```
 
 Finally, we can create a directory in the local filesystem, mount the partition to that directory:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 sudo mkdir -p /mnt/block
 sudo mount /dev/vdb1 /mnt/block
 ```
@@ -261,7 +261,7 @@ sudo mount /dev/vdb1 /mnt/block
 and change the owner of that directory to the `cc` user:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 sudo chown -R cc /mnt/block
 sudo chgrp -R cc /mnt/block
 ```
@@ -269,7 +269,7 @@ sudo chgrp -R cc /mnt/block
 Run
 
 ```bash
-# run on node-block-chi
+# run on node-block
 df -h
 ```
 
@@ -305,7 +305,7 @@ Then we will edit and save a notebook into that directory, and verify that the n
 First, we will create a persistent working directory on the block storage volume, and copy a starter notebook into it:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 mkdir -p /mnt/block/workspace
 cp -r ~/data-persist-chi/block/workspace/* /mnt/block/workspace/
 ```
@@ -313,9 +313,10 @@ cp -r ~/data-persist-chi/block/workspace/* /mnt/block/workspace/
 Now we can bring up the Jupyter service with `docker run`. This will mount `/mnt/block/workspace` into the container at `/home/jovyan/work`.
 
 ```bash
-# run on node-block-chi
+# run on node-block
 docker run -d --rm \
   -p 8888:8888 \
+  --shm-size 8G \
   -v /mnt/block/workspace:/home/jovyan/work \
   --name jupyter \
   quay.io/jupyter/minimal-notebook:latest
@@ -324,7 +325,7 @@ docker run -d --rm \
 To access the Jupyter service, we will need its randomly generated secret token (which secures it from unauthorized access). We'll get this token by running `jupyter server list` inside the `jupyter` container:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 docker exec jupyter jupyter server list
 ```
 
@@ -343,13 +344,15 @@ Run the notebook cell, which writes a small file named `persisted.txt` into the 
 To verify that the notebook and `persisted.txt` are on the block storage volume, run on the host:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 ls -l /mnt/block/workspace/
 ```
 
 
 
 Now, let's confirm that data on the block storage volume persists beyond the lifetime of the compute instance. We will now delete the compute instance.
+
+Before you delete the instance (or stop the container), close the browser tab that is connected to the Jupyter workspace running on the compute instance.
 
 The following cells run in the **Chameleon** Jupyter environment (not in the Jupyter environment that you are hosting on your compute instance!)
 
@@ -370,15 +373,15 @@ username = os.getenv('USER') # exp resources will have this suffix
 ```python
 # run in Chameleon Jupyter environment
 # delete the old server instance!
-s_old = server.get_server(f"node-block-chi-{username}")
+s_old = server.get_server(f"node-block-{username}")
 s_old.delete()
 ```
 
 ```python
 # run in Chameleon Jupyter environment
-l = lease.get_lease(f"lease-block-chi-{username}")
+l = lease.get_lease(f"lease-block-{username}")
 s = server.Server(
-    f"node-block-chi-{username}", 
+    f"node-block-{username}", 
     image_name="CC-Ubuntu24.04",
     flavor_name=l.get_reserved_flavors()[0].name
 )
@@ -390,6 +393,17 @@ s.submit(idempotent=True)
 s.associate_floating_ip()
 ```
 
+
+```python
+# run in Chameleon Jupyter environment
+security_groups = [
+  {'name': "allow-ssh", 'port': 22, 'description': "Enable SSH traffic on TCP port 22"},
+  {'name': "allow-8888", 'port': 8888, 'description': "Enable TCP port 8888 (used by Jupyter)"}
+]
+
+for sg in security_groups:
+  s.add_security_group(sg['name'])
+```
 
 ```python
 # run in Chameleon Jupyter environment
@@ -405,18 +419,6 @@ s.refresh()
 s.show(type="widget")
 ```
 
-
-
-```python
-# run in Chameleon Jupyter environment
-security_groups = [
-  {'name': "allow-ssh", 'port': 22, 'description': "Enable SSH traffic on TCP port 22"},
-  {'name': "allow-8888", 'port': 8888, 'description': "Enable TCP port 8888 (used by Jupyter)"}
-]
-
-for sg in security_groups:
-  s.add_security_group(sg['name'])
-```
 
 
 ```python
@@ -437,7 +439,9 @@ This cell will attach the block storage volume named "block-persist-**netID**" t
 
 ```python
 # run in Chameleon Jupyter environment
-volume = storage.get_volume("block-persist-netID")  # Substitute your own net ID
+# volume = storage.get_volume("block-persist-netID")  # Substitute your own net ID
+cinder_client = chi.clients.cinder()
+volume = [v for v in cinder_client.volumes.list() if v.name == "block-persist-netID"][0]
 s.attach_volume(volume.id)
 ```
 
@@ -456,7 +460,7 @@ Connect to the new instance over SSH. Mount the block storage volume:
 
 
 ```bash
-# run on node-block-chi
+# run on node-block
 sudo mkdir -p /mnt/block
 sudo mount /dev/vdb1 /mnt/block
 ```
@@ -464,7 +468,7 @@ sudo mount /dev/vdb1 /mnt/block
 and confirm that it is not empty:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 ls /mnt/block
 ```
 
@@ -473,7 +477,7 @@ for example, you can see your saved notebook on the persistent volume:
 
 
 ```bash
-# run on node-block-chi
+# run on node-block
 ls /mnt/block/workspace
 ```
 
@@ -481,9 +485,10 @@ ls /mnt/block/workspace
 Bring up the Jupyter service again:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 docker run -d --rm \
   -p 8888:8888 \
+  --shm-size 8G \
   -v /mnt/block/workspace:/home/jovyan/work \
   --name jupyter \
   quay.io/jupyter/minimal-notebook:latest
@@ -492,7 +497,7 @@ docker run -d --rm \
 To access the Jupyter service, get its token again:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 docker exec jupyter jupyter server list
 ```
 
@@ -503,7 +508,7 @@ Open the URL in your browser (substituting the floating IP for `localhost`) and 
 On the VM, stop the Jupyter container and unmount the volume:
 
 ```bash
-# run on node-block-chi
+# run on node-block
 docker stop jupyter
 sudo umount /mnt/block
 ```
@@ -524,8 +529,10 @@ In the Chameleon Jupyter environment, detach the volume from the server and dele
 
 ```python
 # run in Chameleon Jupyter environment
-volume = storage.get_volume("block-persist-netID")  # Substitute your own net ID
-s = server.get_server(f"node-block-chi-{username}")
+# volume = storage.get_volume("block-persist-netID")  # Substitute your own net ID
+cinder_client = chi.clients.cinder()
+volume = [v for v in cinder_client.volumes.list() if v.name == "block-persist-netID"][0]
+s = server.get_server(f"node-block-{username}")
 
 s.detach_volume(volume.id)
 ```
@@ -559,10 +566,16 @@ context.choose_project()
 context.choose_site(default="KVM@TACC")
 
 username = os.getenv('USER')
+```
 
+```python
+# run in Chameleon Jupyter environment
 # reuse the lease created earlier
-l = lease.get_lease(f"lease-block-chi-{username}")
+l = lease.get_lease(f"lease-block-{username}")
+```
 
+```python
+# run in Chameleon Jupyter environment
 # get the Cinder Python client configured by python-chi
 cinder_client = chi.clients.cinder()
 ```
@@ -590,7 +603,8 @@ We can attach the volume to a compute instance:
 
 ```python
 # run in Chameleon Jupyter environment
-server_id = server.get_server(f"node-block-chi-{username}").id
+# server_id = server.get_server(f"node-block-{username}").id
+server_id = chi.nova().servers.find(name=f"node-block-{username}").id
 volume_manager = chi.nova().volumes
 volume_manager.create_server_volume(server_id=server_id, volume_id=volume.id)
 
@@ -620,7 +634,8 @@ At this point, we are done with the server we have been using, so we will delete
 
 ```python
 # run in Chameleon Jupyter environment
-s = server.get_server(f"node-block-chi-{username}")
+# s = server.get_server(f"node-block-{username}")
+s = chi.nova().servers.find(name=f"node-block-{username}")
 s.delete()
 ```
 
@@ -755,7 +770,7 @@ s_boot.delete()
 ```
 
 
-**Comparing boot-from-volume vs attaching a non-bootable data volume - **
+**Comparing boot-from-volume vs attaching a non-bootable data volume** - 
 
 When we boot-from-volume:
 

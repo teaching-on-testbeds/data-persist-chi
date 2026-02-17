@@ -1,7 +1,8 @@
-name: food11-object-load
+name: food11-litdata
 
 volumes:
   food11:
+  lit_out:
 
 services:
   extract-data:
@@ -21,8 +22,6 @@ services:
 
         echo "Resetting dataset directory..."
         rm -rf Food-11
-        mkdir -p Food-11
-        cd Food-11
 
         echo "Downloading dataset zip..."
         curl -L https://nyu.box.com/shared/static/m5kvcl25hfpljul3elhu6xz8y2w61op4.zip \
@@ -31,9 +30,6 @@ services:
         echo "Unzipping dataset..."
         unzip -q Food-11.zip
         rm -f Food-11.zip
-
-        echo "Listing contents of /data after extract stage:"
-        ls -l /data
 
   transform-data:
     image: python:3.11
@@ -72,13 +68,72 @@ services:
                         )
         '
 
-        echo "Listing contents of /data/Food-11 after transform stage:"
-        ls -l /data/Food-11
-
-  load-data:
-    image: rclone/rclone:latest
+  optimize-litdata:
+    build:
+      context: .
+      dockerfile: Dockerfile.litdata
+    environment:
+      - LITDATA_CHUNK_BYTES=64MB
+      - LITDATA_NUM_WORKERS=4
     volumes:
-      - food11:/data
+      - food11:/data:ro
+      - lit_out:/out
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+        python - <<'PY'
+        import os
+        from pathlib import Path
+        from PIL import Image
+        from litdata import optimize
+
+        data_root = Path("/data/Food-11")
+        out_root = Path("/out")
+        chunk_bytes = os.environ.get("LITDATA_CHUNK_BYTES", "64MB")
+        num_workers = int(os.environ.get("LITDATA_NUM_WORKERS", "4"))
+
+        def records_for_split(split_dir: Path):
+            records = []
+            for class_dir in sorted(split_dir.glob("class_*")):
+                label = int(class_dir.name.split("_")[1])
+                for img_path in sorted(class_dir.rglob("*")):
+                    if img_path.suffix.lower() not in (".jpg", ".jpeg", ".png"):
+                        continue
+                    records.append({"image_path": str(img_path), "label": label})
+            return records
+
+        def encode_sample(sample):
+            return {
+                "image": Image.open(sample["image_path"]).convert("RGB"),
+                "label": int(sample["label"]),
+            }
+
+        for split in ["training", "validation", "evaluation"]:
+            split_dir = data_root / split
+            if not split_dir.exists():
+                continue
+            out_dir = out_root / split
+            out_dir.mkdir(parents=True, exist_ok=True)
+            inputs = records_for_split(split_dir)
+            optimize(
+                fn=encode_sample,
+                inputs=inputs,
+                output_dir=str(out_dir),
+                chunk_bytes=chunk_bytes,
+                num_workers=num_workers,
+            )
+
+        print("Wrote LitData chunks under /out")
+        PY
+
+  upload-litdata:
+    image: rclone/rclone:latest
+    depends_on:
+      - optimize-litdata
+    volumes:
+      - lit_out:/out:ro
       - ~/.config/rclone/rclone.conf:/root/.config/rclone/rclone.conf:ro
     entrypoint: /bin/sh
     command:
@@ -90,12 +145,11 @@ services:
           exit 1
         fi
 
-        echo "Using S3 API to upload data..."
-        echo "Cleaning up existing contents of destination prefix..."
-        rclone delete rclone_s3:$RCLONE_CONTAINER/Food-11 --rmdirs || true
+        echo "Cleaning up existing destination prefix..."
+        rclone delete rclone_s3:$RCLONE_CONTAINER/Food-11-litdata --rmdirs || true
 
-        echo "Uploading Food-11 directory tree..."
-        rclone copy /data/Food-11 rclone_s3:$RCLONE_CONTAINER/Food-11 \
+        echo "Uploading LitData chunks..."
+        rclone copy /out rclone_s3:$RCLONE_CONTAINER/Food-11-litdata \
           --progress \
           --transfers=8 \
           --checkers=4 \
@@ -106,4 +160,4 @@ services:
           --contimeout=60s
 
         echo "Listing directories after upload:"
-        rclone lsd rclone_s3:$RCLONE_CONTAINER/Food-11
+        rclone lsd rclone_s3:$RCLONE_CONTAINER/Food-11-litdata

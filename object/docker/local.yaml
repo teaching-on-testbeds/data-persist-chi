@@ -22,8 +22,6 @@ services:
 
         echo "Resetting dataset directory..."
         rm -rf Food-11
-        mkdir -p Food-11
-        cd Food-11
 
         echo "Downloading dataset zip..."
         curl -L https://nyu.box.com/shared/static/m5kvcl25hfpljul3elhu6xz8y2w61op4.zip \

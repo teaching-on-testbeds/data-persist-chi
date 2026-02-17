@@ -22,8 +22,8 @@ This repo update is designed without executing Docker Compose pipelines or runni
 ## Naming decisions
 
 - Rename server/lease to object-specific names:
-  - `lease-object-chi-{username}`
-  - `node-object-chi-{username}`
+  - `lease-object-{username}`
+  - `node-object-{username}`
 
 ## Notebook strategy
 
@@ -76,16 +76,16 @@ Notebook names will match DataLoader pattern:
 
 Create separate compose files under `docker/`, each representing one full ETL path from scratch:
 
-- `docker-compose-local-baseline.yaml`
+- `local.yaml`
   - extract + transform to local Docker volume for local ImageFolder benchmark
 
-- `docker-compose-object-load.yaml`
+- `load.yaml`
   - extract + transform + load to object store (`Food-11/`)
 
-- `docker-compose-webdataset.yaml`
+- `wds.yaml`
   - extract + transform + shard to WebDataset + upload (`Food-11-webdataset/`)
 
-- `docker-compose-litdata.yaml`
+- `lit.yaml`
   - extract + transform + optimize to LitData chunks + upload (`Food-11-litdata/`)
 
 All compose files:
@@ -105,7 +105,7 @@ All compose files:
 
 ### `snippets/create_server.md`
 
-- Rename lease/server (`lease-object-chi-*`, `node-object-chi-*`)
+- Rename lease/server (`lease-object-*`, `node-object-*`)
 - Use clone:
   - `git clone https://github.com/teaching-on-testbeds/data-persist-chi`
 - Use object-lab subdir paths
@@ -119,7 +119,7 @@ Add a runbook step for WebDataset-style sharding (tar shards) and benchmarking.
 
 Keep cleanup notebook:
 
-- delete `node-object-chi-{username}`
+- delete `node-object-{username}`
 - delete object container and contents
 - do not delete lease explicitly
 

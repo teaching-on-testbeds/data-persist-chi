@@ -20,10 +20,20 @@ context.choose_project()
 context.choose_site(default="KVM@TACC")
 
 username = os.getenv('USER')
+```
+:::
 
+::: {.cell .code}
+```python
+# run in Chameleon Jupyter environment
 # reuse the lease created earlier
-l = lease.get_lease(f"lease-block-chi-{username}")
+l = lease.get_lease(f"lease-block-{username}")
+```
+:::
 
+::: {.cell .code}
+```python
+# run in Chameleon Jupyter environment
 # get the Cinder Python client configured by python-chi
 cinder_client = chi.clients.cinder()
 ```
@@ -61,7 +71,8 @@ We can attach the volume to a compute instance:
 ::: {.cell .code}
 ```python
 # run in Chameleon Jupyter environment
-server_id = server.get_server(f"node-block-chi-{username}").id
+# server_id = server.get_server(f"node-block-{username}").id
+server_id = chi.nova().servers.find(name=f"node-block-{username}").id
 volume_manager = chi.nova().volumes
 volume_manager.create_server_volume(server_id=server_id, volume_id=volume.id)
 
@@ -103,7 +114,8 @@ At this point, we are done with the server we have been using, so we will delete
 ::: {.cell .code}
 ```python
 # run in Chameleon Jupyter environment
-s = server.get_server(f"node-block-chi-{username}")
+# s = server.get_server(f"node-block-{username}")
+s = chi.nova().servers.find(name=f"node-block-{username}")
 s.delete()
 ```
 :::
@@ -272,7 +284,7 @@ s_boot.delete()
 
 ::: {.cell .markdown}
 
-**Comparing boot-from-volume vs attaching a non-bootable data volume - **
+**Comparing boot-from-volume vs attaching a non-bootable data volume** - 
 
 When we boot-from-volume:
 
