@@ -152,7 +152,6 @@ Now we can bring up the Jupyter service with `docker run`. This will mount `/mnt
 # run on node-block
 docker run -d --rm \
   -p 8888:8888 \
-  --shm-size 8G \
   -v /mnt/block/workspace:/home/jovyan/work \
   --name jupyter \
   quay.io/jupyter/minimal-notebook:latest
@@ -352,7 +351,6 @@ Bring up the Jupyter service again:
 # run on node-block
 docker run -d --rm \
   -p 8888:8888 \
-  --shm-size 8G \
   -v /mnt/block/workspace:/home/jovyan/work \
   --name jupyter \
   quay.io/jupyter/minimal-notebook:latest
@@ -405,7 +403,6 @@ In the Chameleon Jupyter environment, detach the volume from the server and dele
 cinder_client = chi.clients.cinder()
 volume = [v for v in cinder_client.volumes.list() if v.name == "block-persist-netID"][0]
 s = server.get_server(f"node-block-{username}")
-
 s.detach_volume(volume.id)
 ```
 :::
@@ -414,6 +411,7 @@ s.detach_volume(volume.id)
 ```python
 # run in Chameleon Jupyter environment
 # wait for the volume to become available before deleting
+volume = cinder_client.volumes.get(volume.id)
 print("volume status:", volume.status)
 ```
 :::

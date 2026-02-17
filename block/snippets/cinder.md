@@ -241,12 +241,29 @@ Next, associate a floating IP so that we can SSH to the instance:
 ::: {.cell .code}
 ```python
 # run in Chameleon Jupyter environment
-s_boot = server.get_server(f"node-bootable-{username}")
-s_boot.associate_floating_ip()
-s_boot.refresh()
-s_boot.show(type="widget")
+# python-chi's server wrapper does not work reliably for boot-from-volume instances,
+# so we use the OpenStack SDK connection to allocate and attach a floating IP.
+server = os_conn.compute.find_server(f"node-bootable-{username}")
+sharednet = os_conn.network.find_network("sharednet1")
+port = next(p for p in os_conn.network.ports(device_id=server.id) if p.network_id == sharednet.id)
 ```
 :::
+
+::: {.cell .code}
+```python
+floating_net = os_conn.network.find_network("public")
+fip = os_conn.network.create_ip(floating_network_id=floating_net.id)
+fip.floating_ip_address
+```
+:::
+
+::: {.cell .code}
+```python
+os_conn.network.update_ip(fip, port_id=port.id)
+print("floating ip:", fip.floating_ip_address)
+```
+:::
+
 
 ::: {.cell .markdown}
 
@@ -277,8 +294,8 @@ When you are finished with this boot-from-volume instance, delete it. Since we s
 ::: {.cell .code}
 ```python
 # run in Chameleon Jupyter environment
-s_boot = server.get_server(f"node-bootable-{username}")
-s_boot.delete()
+server_from_vol = os_conn.compute.find_server(f"node-bootable-{username}")
+os_conn.compute.delete_server(server_from_vol, ignore_missing=True)
 ```
 :::
 

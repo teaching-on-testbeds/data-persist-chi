@@ -354,7 +354,6 @@ Now we can bring up the Jupyter service with `docker run`. This will mount `/mnt
 # run on node-block
 docker run -d --rm \
   -p 8888:8888 \
-  --shm-size 8G \
   -v /mnt/block/workspace:/home/jovyan/work \
   --name jupyter \
   quay.io/jupyter/minimal-notebook:latest
@@ -526,7 +525,6 @@ Bring up the Jupyter service again:
 # run on node-block
 docker run -d --rm \
   -p 8888:8888 \
-  --shm-size 8G \
   -v /mnt/block/workspace:/home/jovyan/work \
   --name jupyter \
   quay.io/jupyter/minimal-notebook:latest
@@ -571,13 +569,13 @@ In the Chameleon Jupyter environment, detach the volume from the server and dele
 cinder_client = chi.clients.cinder()
 volume = [v for v in cinder_client.volumes.list() if v.name == "block-persist-netID"][0]
 s = server.get_server(f"node-block-{username}")
-
 s.detach_volume(volume.id)
 ```
 
 ```python
 # run in Chameleon Jupyter environment
 # wait for the volume to become available before deleting
+volume = cinder_client.volumes.get(volume.id)
 print("volume status:", volume.status)
 ```
 
@@ -773,11 +771,24 @@ Next, associate a floating IP so that we can SSH to the instance:
 
 ```python
 # run in Chameleon Jupyter environment
-s_boot = server.get_server(f"node-bootable-{username}")
-s_boot.associate_floating_ip()
-s_boot.refresh()
-s_boot.show(type="widget")
+# python-chi's server wrapper does not work reliably for boot-from-volume instances,
+# so we use the OpenStack SDK connection to allocate and attach a floating IP.
+server = os_conn.compute.find_server(f"node-bootable-{username}")
+sharednet = os_conn.network.find_network("sharednet1")
+port = next(p for p in os_conn.network.ports(device_id=server.id) if p.network_id == sharednet.id)
 ```
+
+```python
+floating_net = os_conn.network.find_network("public")
+fip = os_conn.network.create_ip(floating_network_id=floating_net.id)
+fip.floating_ip_address
+```
+
+```python
+os_conn.network.update_ip(fip, port_id=port.id)
+print("floating ip:", fip.floating_ip_address)
+```
+
 
 
 Make a note of the floating IP in the output above. Then, from a local terminal, SSH to the instance:
@@ -803,8 +814,8 @@ When you are finished with this boot-from-volume instance, delete it. Since we s
 
 ```python
 # run in Chameleon Jupyter environment
-s_boot = server.get_server(f"node-bootable-{username}")
-s_boot.delete()
+server_from_vol = os_conn.compute.find_server(f"node-bootable-{username}")
+os_conn.compute.delete_server(server_from_vol, ignore_missing=True)
 ```
 
 
