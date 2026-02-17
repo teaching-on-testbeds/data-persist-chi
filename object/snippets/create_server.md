@@ -173,6 +173,12 @@ s.execute("sudo groupadd -f docker; sudo usermod -aG docker $USER")
 ```
 :::
 
+::: {.cell .code}
+```python
+s.execute("sudo apt-get update; sudo apt-get -y install iotop nethogs")
+```
+:::
+
 
 ::: {.cell .markdown}
 

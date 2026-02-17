@@ -44,20 +44,6 @@ First, set the bucket/container name (replace **netID**):
 export RCLONE_CONTAINER=object-chi-netID
 ```
 
-Run the extract stage:
-
-```bash
-# run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm extract-data
-```
-
-Run the transform stage:
-
-```bash
-# run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm transform-data
-```
-
 Build the shards:
 
 ```bash

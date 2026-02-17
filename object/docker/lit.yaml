@@ -2,80 +2,11 @@ name: food11-litdata
 
 volumes:
   food11:
+    external: true
+    name: food11_local_baseline
   lit_out:
 
 services:
-  extract-data:
-    image: python:3.11
-    user: root
-    volumes:
-      - food11:/data
-    working_dir: /data
-    command:
-      - bash
-      - -c
-      - |
-        set -e
-        apt-get update
-        apt-get install -y --no-install-recommends curl unzip
-        rm -rf /var/lib/apt/lists/*
-
-        echo "Resetting dataset directories..."
-        rm -rf Food-11 training validation evaluation
-
-        echo "Downloading dataset zip..."
-        mkdir -p Food-11
-        cd Food-11
-
-        curl -L https://nyu.box.com/shared/static/m5kvcl25hfpljul3elhu6xz8y2w61op4.zip \
-          -o Food-11.zip
-
-        echo "Unzipping dataset..."
-        unzip -q Food-11.zip
-        rm -f Food-11.zip
-
-        if [ -d Food-11/training ]; then
-          mv Food-11/training Food-11/validation Food-11/evaluation .
-          rm -rf Food-11
-        fi
-
-  transform-data:
-    image: python:3.11
-    volumes:
-      - food11:/data
-    working_dir: /data/Food-11
-    command:
-      - bash
-      - -c
-      - |
-        set -e
-        python3 -c '
-        import os
-        import shutil
-
-        dataset_base_dir = "/data/Food-11"
-        subdirs = ["training", "validation", "evaluation"]
-        classes = [
-            "Bread", "Dairy product", "Dessert", "Egg", "Fried food",
-            "Meat", "Noodles/Pasta", "Rice", "Seafood", "Soup", "Vegetable/Fruit"
-        ]
-
-        for subdir in subdirs:
-            dir_path = os.path.join(dataset_base_dir, subdir)
-            if not os.path.exists(dir_path):
-                continue
-
-            for i, class_name in enumerate(classes):
-                class_dir = os.path.join(dir_path, f"class_{i:02d}")
-                os.makedirs(class_dir, exist_ok=True)
-                for f in os.listdir(dir_path):
-                    if f.startswith(f"{i}_"):
-                        shutil.move(
-                            os.path.join(dir_path, f),
-                            os.path.join(class_dir, f)
-                        )
-        '
-
   optimize-litdata:
     build:
       context: .

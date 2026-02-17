@@ -67,7 +67,7 @@ docker compose -f ~/data-persist-chi/object/docker/local.yaml run --rm transform
 
 Now run a Jupyter container and mount:
 
-* the Food11 data volume at `/mnt/Food-11` (read-only)
+* the Food11 data volume at `/mnt` (read-only). The dataset will be available at `/mnt/Food-11` inside the container.
 * the lab notebooks at `/home/jovyan/work`
 
 Run:
@@ -79,7 +79,7 @@ docker run -d --rm \
   --shm-size 8G \
   -e FOOD11_DATA_DIR=/mnt/Food-11 \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
-  -v food11_local_baseline:/mnt/Food-11:ro \
+  -v food11_local_baseline:/mnt:ro \
   --name jupyter \
   quay.io/jupyter/pytorch-notebook:latest
 ```

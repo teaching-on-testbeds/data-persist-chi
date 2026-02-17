@@ -34,14 +34,6 @@ services:
         unzip -q Food-11.zip
         rm -f Food-11.zip
 
-        # Some versions of this dataset zip extract into a nested Food-11/ directory.
-        # If so, move its contents up one level so we always have:
-        # /data/Food-11/{training,validation,evaluation}
-        if [ -d Food-11/training ]; then
-          mv Food-11/training Food-11/validation Food-11/evaluation .
-          rm -rf Food-11
-        fi
-
         echo "Listing contents of /data after extract stage:"
         ls -l /data
 

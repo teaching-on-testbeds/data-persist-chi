@@ -154,6 +154,10 @@ s.execute("curl -sSL https://get.docker.com/ | sudo sh")
 s.execute("sudo groupadd -f docker; sudo usermod -aG docker $USER")
 ```
 
+```python
+s.execute("sudo apt-get update; sudo apt-get -y install iotop nethogs")
+```
+
 
 
 ## Open an SSH session
@@ -233,7 +237,7 @@ docker compose -f ~/data-persist-chi/object/docker/local.yaml run --rm transform
 
 Now run a Jupyter container and mount:
 
-* the Food11 data volume at `/mnt/Food-11` (read-only)
+* the Food11 data volume at `/mnt` (read-only). The dataset will be available at `/mnt/Food-11` inside the container.
 * the lab notebooks at `/home/jovyan/work`
 
 Run:
@@ -245,7 +249,7 @@ docker run -d --rm \
   --shm-size 8G \
   -e FOOD11_DATA_DIR=/mnt/Food-11 \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
-  -v food11_local_baseline:/mnt/Food-11:ro \
+  -v food11_local_baseline:/mnt:ro \
   --name jupyter \
   quay.io/jupyter/pytorch-notebook:latest
 ```
@@ -467,20 +471,6 @@ First, set the bucket/container name (replace **netID**):
 export RCLONE_CONTAINER=object-chi-netID
 ```
 
-Run the extract stage:
-
-```bash
-# run on node-object
-docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm extract-data
-```
-
-Run the transform stage:
-
-```bash
-# run on node-object
-docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm transform-data
-```
-
 Run the load stage:
 
 ```bash
@@ -661,20 +651,6 @@ First, set the bucket/container name (replace **netID**):
 export RCLONE_CONTAINER=object-chi-netID
 ```
 
-Run the extract stage:
-
-```bash
-# run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm extract-data
-```
-
-Run the transform stage:
-
-```bash
-# run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm transform-data
-```
-
 Build the shards:
 
 ```bash
@@ -776,20 +752,6 @@ First, set the bucket/container name (replace **netID**):
 ```bash
 # run on node-object
 export RCLONE_CONTAINER=object-chi-netID
-```
-
-Run the extract stage:
-
-```bash
-# run on node-object
-docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm extract-data
-```
-
-Run the transform stage:
-
-```bash
-# run on node-object
-docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm transform-data
 ```
 
 Build the optimized dataset:
