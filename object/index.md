@@ -192,6 +192,8 @@ It uses a shared Docker volume named `food11_local_baseline`:
 * `extract-data` downloads and unzips Food11 into the volume.
 * `transform-data` reorganizes images into class subdirectories so they can be read by `ImageFolder`.
 
+In these stages, we are downloading the raw data into a staging area, then transforming it into a layout that is convenient for training input. We are not loading the data to its permanent home yet. In later stages of this lab, we will keep this staging area around (as a Docker volume), reuse the organized data, and then load it into object storage or convert it into other formats.
+
 After the transform stage, the volume contains a normal directory tree (one file per image) that looks like this when mounted at `/mnt/Food-11`:
 
 ```text
@@ -265,6 +267,14 @@ Open the printed URL in your browser, substituting the floating IP for `localhos
 
 In the Jupyter UI, open and run `imagefolder_local.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
 
+When the benchmark prints its results, interpret the throughput metrics as follows:
+
+* `imgs/s` (images per second) - higher is better. This is the main steady-state metric for how quickly the input pipeline can produce training examples.
+* `batches/s` (batches per second) - higher is better. This is the same idea as `imgs/s`, but expressed in batches.
+* `avg_batch_s` (average seconds per batch) - lower is better. This is approximately the inverse of `batches/s`.
+
+In later parts of the lab, we will compare these same metrics across different storage and dataset formats.
+
 In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, pointing at a local directory (`/mnt/Food-11/<split>`). The DataLoader reads individual image files from the mounted volume, decodes them (PIL), applies a resize/crop/normalize transform, and batches tensors.
 
 When you are done with the local baseline, stop the container:
@@ -312,9 +322,8 @@ To access this object storage using the S3 API from our compute instance and fro
 
 In Chameleon, we can generate an EC2-style credential (access key + secret key) for our current user and project.
 
-Important: treat the secret like a password. Save it somewhere safe. If you share screenshots or publish notebooks, clear the cell output first.
+Important: treat the secret like a password. Save it somewhere safe. If you share screenshots or publish notebooks that include a credential, clear the cell output first.
 
-The following cells run in the Chameleon Jupyter environment.
 
 
 ```python
@@ -329,16 +338,15 @@ context.choose_site(default="CHI@TACC")
 
 ```python
 # run in Chameleon Jupyter environment
-conn = connection.from_config()
+conn = chi.clients.connection()
 
 project_id = conn.current_project_id
 identity_ep = conn.session.get_endpoint(service_type="identity", interface="public")
 url = f"{identity_ep}/v3/users/{conn.current_user_id}/credentials/OS-EC2"
 
-payload = {"tenant_id": project_id}
-response = conn.session.post(url, json=payload)
-response.raise_for_status()
-ec2 = response.json()["credential"]
+resp = conn.session.post(url, json={"tenant_id": project_id})
+resp.raise_for_status()
+ec2 = resp.json()["credential"]
 
 print("EC2 Access:", ec2["access"])
 print("EC2 Secret:", ec2["secret"])
@@ -420,6 +428,7 @@ rclone mount rclone_s3:object-chi-netID /tmp/rclone-tests/object \
   --read-only \
   --allow-other \
   --vfs-cache-mode off \
+  --dir-cache-time 10s \
   --daemon
 ```
 
@@ -436,9 +445,11 @@ In this part, we will:
 
 
 
-### ETL pipeline (extract + transform + load to S3)
+### ETL pipeline (load to S3)
 
 The pipeline stages are defined in `~/data-persist-chi/object/docker/load.yaml`.
+
+This pipeline re-uses the extract and first transform step from the local baseline: we kept the organized Food11 directory tree in a Docker volume (`food11_local_baseline`). This stage mounts that staging volume read-only and loads its contents into S3.
 
 It will upload the Food11 directory tree to:
 
@@ -516,6 +527,15 @@ Open the printed URL in your browser, substituting the floating IP for `localhos
 
 In the Jupyter UI, open and run `imagefolder_rclone_mount.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
 
+While the benchmark is running in the Jupyter UI, open a separate SSH terminal on the node (not inside the Jupyter container) and run:
+
+```bash
+# run on node-object
+sudo nethogs
+```
+
+Watch the per-process network traffic and note how much bandwidth is attributable to the `rclone` mount process while the DataLoader is reading.
+
 In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, but the filesystem backing it is an rclone FUSE mount of the S3 bucket. The DataLoader still does ordinary file opens and reads, but every read is translated into S3 GET requests under the hood.
 
 Stop the container when you are done:
@@ -585,7 +605,8 @@ docker run -d --rm \
   -e FOOD11_SPLIT=evaluation \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   --name jupyter \
-  quay.io/jupyter/pytorch-notebook:latest
+  quay.io/jupyter/pytorch-notebook:latest \
+  bash -lc "pip -q install s3fs && start-notebook.sh"
 ```
 
 Get the Jupyter token:
@@ -618,9 +639,11 @@ Compared to reading one S3 object per sample, sharding reduces per-sample overhe
 
 
 
-### ETL pipeline (extract + transform + shard + upload)
+### ETL pipeline (shard + load)
 
 The pipeline stages are defined in `~/data-persist-chi/object/docker/wds.yaml`.
+
+This pipeline re-uses the extract and first transform step from the local baseline: we kept the organized Food11 directory tree in a Docker volume (`food11_local_baseline`). This stage reads images from that staging volume (read-only), writes shards to a separate output volume, and then loads those shards into S3.
 
 It will upload tar shards to:
 
@@ -690,7 +713,8 @@ docker run -d --rm \
   -e FOOD11_SPLIT=evaluation \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   --name jupyter \
-  quay.io/jupyter/pytorch-notebook:latest
+  quay.io/jupyter/pytorch-notebook:latest \
+  bash -lc "pip -q install s3fs && start-notebook.sh"
 ```
 
 Get the Jupyter token:
@@ -721,9 +745,11 @@ In this part, we will write the dataset in a LitData optimized format and then s
 
 
 
-### ETL pipeline (extract + transform + optimize + upload)
+### ETL pipeline (optimize + load)
 
 The pipeline stages are defined in `~/data-persist-chi/object/docker/lit.yaml`.
+
+This pipeline re-uses the extract and first transform step from the local baseline: we kept the organized Food11 directory tree in a Docker volume (`food11_local_baseline`). This stage reads images from that staging volume (read-only), writes LitData output to a separate output volume, and then loads that output into S3.
 
 It will upload optimized data to:
 

@@ -9,9 +9,11 @@ In this part, we will write the dataset in a LitData optimized format and then s
 
 ::: {.cell .markdown}
 
-### ETL pipeline (extract + transform + optimize + upload)
+### ETL pipeline (optimize + load)
 
 The pipeline stages are defined in `~/data-persist-chi/object/docker/lit.yaml`.
+
+This pipeline re-uses the extract and first transform step from the local baseline: we kept the organized Food11 directory tree in a Docker volume (`food11_local_baseline`). This stage reads images from that staging volume (read-only), writes LitData output to a separate output volume, and then loads that output into S3.
 
 It will upload optimized data to:
 

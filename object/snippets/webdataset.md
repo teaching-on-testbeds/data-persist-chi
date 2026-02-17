@@ -11,9 +11,11 @@ Compared to reading one S3 object per sample, sharding reduces per-sample overhe
 
 ::: {.cell .markdown}
 
-### ETL pipeline (extract + transform + shard + upload)
+### ETL pipeline (shard + load)
 
 The pipeline stages are defined in `~/data-persist-chi/object/docker/wds.yaml`.
+
+This pipeline re-uses the extract and first transform step from the local baseline: we kept the organized Food11 directory tree in a Docker volume (`food11_local_baseline`). This stage reads images from that staging volume (read-only), writes shards to a separate output volume, and then loads those shards into S3.
 
 It will upload tar shards to:
 
@@ -85,7 +87,8 @@ docker run -d --rm \
   -e FOOD11_SPLIT=evaluation \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   --name jupyter \
-  quay.io/jupyter/pytorch-notebook:latest
+  quay.io/jupyter/pytorch-notebook:latest \
+  bash -lc "pip -q install s3fs && start-notebook.sh"
 ```
 
 Get the Jupyter token:

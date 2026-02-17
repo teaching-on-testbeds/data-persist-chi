@@ -20,6 +20,8 @@ It uses a shared Docker volume named `food11_local_baseline`:
 * `extract-data` downloads and unzips Food11 into the volume.
 * `transform-data` reorganizes images into class subdirectories so they can be read by `ImageFolder`.
 
+In these stages, we are downloading the raw data into a staging area, then transforming it into a layout that is convenient for training input. We are not loading the data to its permanent home yet. In later stages of this lab, we will keep this staging area around (as a Docker volume), reuse the organized data, and then load it into object storage or convert it into other formats.
+
 After the transform stage, the volume contains a normal directory tree (one file per image) that looks like this when mounted at `/mnt/Food-11`:
 
 ```text
@@ -94,6 +96,14 @@ docker exec jupyter jupyter server list
 Open the printed URL in your browser, substituting the floating IP for `localhost`.
 
 In the Jupyter UI, open and run `imagefolder_local.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
+
+When the benchmark prints its results, interpret the throughput metrics as follows:
+
+* `imgs/s` (images per second) - higher is better. This is the main steady-state metric for how quickly the input pipeline can produce training examples.
+* `batches/s` (batches per second) - higher is better. This is the same idea as `imgs/s`, but expressed in batches.
+* `avg_batch_s` (average seconds per batch) - lower is better. This is approximately the inverse of `batches/s`.
+
+In later parts of the lab, we will compare these same metrics across different storage and dataset formats.
 
 In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, pointing at a local directory (`/mnt/Food-11/<split>`). The DataLoader reads individual image files from the mounted volume, decodes them (PIL), applies a resize/crop/normalize transform, and batches tensors.
 

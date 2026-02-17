@@ -82,6 +82,7 @@ rclone mount rclone_s3:object-chi-netID /tmp/rclone-tests/object \
   --read-only \
   --allow-other \
   --vfs-cache-mode off \
+  --dir-cache-time 10s \
   --daemon
 ```
 

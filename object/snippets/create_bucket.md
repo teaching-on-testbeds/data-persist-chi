@@ -41,9 +41,8 @@ To access this object storage using the S3 API from our compute instance and fro
 
 In Chameleon, we can generate an EC2-style credential (access key + secret key) for our current user and project.
 
-Important: treat the secret like a password. Save it somewhere safe. If you share screenshots or publish notebooks, clear the cell output first.
+Important: treat the secret like a password. Save it somewhere safe. If you share screenshots or publish notebooks that include a credential, clear the cell output first.
 
-The following cells run in the Chameleon Jupyter environment.
 
 :::
 
@@ -62,16 +61,15 @@ context.choose_site(default="CHI@TACC")
 ::: {.cell .code}
 ```python
 # run in Chameleon Jupyter environment
-conn = connection.from_config()
+conn = chi.clients.connection()
 
 project_id = conn.current_project_id
 identity_ep = conn.session.get_endpoint(service_type="identity", interface="public")
 url = f"{identity_ep}/v3/users/{conn.current_user_id}/credentials/OS-EC2"
 
-payload = {"tenant_id": project_id}
-response = conn.session.post(url, json=payload)
-response.raise_for_status()
-ec2 = response.json()["credential"]
+resp = conn.session.post(url, json={"tenant_id": project_id})
+resp.raise_for_status()
+ec2 = resp.json()["credential"]
 
 print("EC2 Access:", ec2["access"])
 print("EC2 Secret:", ec2["secret"])

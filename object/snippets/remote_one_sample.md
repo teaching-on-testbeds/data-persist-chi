@@ -50,7 +50,8 @@ docker run -d --rm \
   -e FOOD11_SPLIT=evaluation \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   --name jupyter \
-  quay.io/jupyter/pytorch-notebook:latest
+  quay.io/jupyter/pytorch-notebook:latest \
+  bash -lc "pip -q install s3fs && start-notebook.sh"
 ```
 
 Get the Jupyter token:

@@ -14,9 +14,11 @@ In this part, we will:
 
 ::: {.cell .markdown}
 
-### ETL pipeline (extract + transform + load to S3)
+### ETL pipeline (load to S3)
 
 The pipeline stages are defined in `~/data-persist-chi/object/docker/load.yaml`.
+
+This pipeline re-uses the extract and first transform step from the local baseline: we kept the organized Food11 directory tree in a Docker volume (`food11_local_baseline`). This stage mounts that staging volume read-only and loads its contents into S3.
 
 It will upload the Food11 directory tree to:
 
@@ -95,6 +97,15 @@ docker exec jupyter jupyter server list
 Open the printed URL in your browser, substituting the floating IP for `localhost`.
 
 In the Jupyter UI, open and run `imagefolder_rclone_mount.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
+
+While the benchmark is running in the Jupyter UI, open a separate SSH terminal on the node (not inside the Jupyter container) and run:
+
+```bash
+# run on node-object
+sudo nethogs
+```
+
+Watch the per-process network traffic and note how much bandwidth is attributable to the `rclone` mount process while the DataLoader is reading.
 
 In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, but the filesystem backing it is an rclone FUSE mount of the S3 bucket. The DataLoader still does ordinary file opens and reads, but every read is translated into S3 GET requests under the hood.
 
