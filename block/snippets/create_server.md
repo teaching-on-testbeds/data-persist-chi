@@ -15,6 +15,7 @@ Run the following cell, and make sure the correct project is selected.
 
 ::: {.cell .code}
 ```python
+# run in Chameleon Jupyter environment
 from chi import server, context, lease, network
 import chi, os, time, datetime
 
@@ -42,6 +43,7 @@ First we will reserve the VM instance for 4 hours, starting now:
 
 ::: {.cell .code}
 ```python
+# run in Chameleon Jupyter environment
 l = lease.Lease(f"lease-block-{username}", duration=datetime.timedelta(hours=4))
 l.add_flavor_reservation(id=chi.server.get_flavor_id("m1.medium"), amount=1)
 l.submit(idempotent=True)
@@ -51,6 +53,7 @@ l.submit(idempotent=True)
 
 ::: {.cell .code}
 ```python
+# run in Chameleon Jupyter environment
 l.show()
 ```
 :::
@@ -65,6 +68,7 @@ Now we can launch an instance using that lease:
 
 ::: {.cell .code}
 ```python
+# run in Chameleon Jupyter environment
 s = server.Server(
     f"node-block-{username}", 
     image_name="CC-Ubuntu24.04",
@@ -83,6 +87,7 @@ Then, we'll associate a floating IP with the instance:
 
 ::: {.cell .code}
 ```python
+# run in Chameleon Jupyter environment
 s.associate_floating_ip()
 ```
 :::
@@ -95,6 +100,7 @@ In the output below, make a note of the floating IP that has been assigned to yo
 
 ::: {.cell .code}
 ```python
+# run in Chameleon Jupyter environment
 s.refresh()
 s.show(type="widget")
 ```
@@ -111,6 +117,7 @@ The following security groups will be created (if they do not already exist in o
 
 ::: {.cell .code}
 ```python
+# run in Chameleon Jupyter environment
 security_groups = [
   {'name': "allow-ssh", 'port': 22, 'description': "Enable SSH traffic on TCP port 22"},
   {'name': "allow-8888", 'port': 8888, 'description': "Enable TCP port 8888 (used by Jupyter)"}
@@ -121,6 +128,7 @@ security_groups = [
 
 ::: {.cell .code}
 ```python
+# run in Chameleon Jupyter environment
 for sg in security_groups:
   secgroup = network.SecurityGroup({
       'name': sg['name'],
@@ -136,6 +144,7 @@ print(f"updated security groups: {[sg['name'] for sg in security_groups]}")
 
 ::: {.cell .code}
 ```python
+# run in Chameleon Jupyter environment
 s.refresh()
 s.check_connectivity()
 ```
@@ -153,6 +162,7 @@ Now, we can use `python-chi` to execute commands on the instance, to set it up. 
 
 ::: {.cell .code}
 ```python
+# run in Chameleon Jupyter environment
 s.execute("git clone https://github.com/teaching-on-testbeds/data-persist-chi")
 ```
 :::
@@ -168,6 +178,7 @@ Here, we will set up the container framework.
 
 ::: {.cell .code}
 ```python
+# run in Chameleon Jupyter environment
 s.execute("curl -sSL https://get.docker.com/ | sudo sh")
 s.execute("sudo groupadd -f docker; sudo usermod -aG docker $USER")
 ```

@@ -232,6 +232,14 @@ server_from_vol.status
 ```
 :::
 
+::: {.cell .code}
+```python
+# run in Chameleon Jupyter environment
+# allow inbound SSH (TCP/22)
+os_conn.compute.add_security_group_to_server(server_from_vol, "allow-ssh")
+```
+:::
+
 ::: {.cell .markdown}
 
 Next, associate a floating IP so that we can SSH to the instance:
