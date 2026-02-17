@@ -49,14 +49,14 @@ Run the extract stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/local.yaml run extract-data
+docker compose -f ~/data-persist-chi/object/docker/local.yaml run --rm extract-data
 ```
 
 Run the transform stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/local.yaml run transform-data
+docker compose -f ~/data-persist-chi/object/docker/local.yaml run --rm transform-data
 ```
 
 :::

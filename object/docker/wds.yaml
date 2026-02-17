@@ -20,19 +20,30 @@ services:
         apt-get install -y --no-install-recommends curl unzip
         rm -rf /var/lib/apt/lists/*
 
-        echo "Resetting dataset directory..."
-        rm -rf Food-11
+        echo "Resetting dataset directories..."
+        rm -rf Food-11 extract_tmp
 
         echo "Downloading dataset zip..."
         curl -L https://nyu.box.com/shared/static/m5kvcl25hfpljul3elhu6xz8y2w61op4.zip \
           -o Food-11.zip
 
-        echo "Unzipping dataset..."
-        unzip -q Food-11.zip
+        echo "Unzipping dataset to a temp directory..."
+        mkdir -p extract_tmp
+        unzip -q Food-11.zip -d extract_tmp
         rm -f Food-11.zip
 
-        echo "Listing contents of /data after extract stage:"
-        ls -l /data
+        echo "Normalizing extracted layout to /data/Food-11/{training,validation,evaluation}..."
+        mkdir -p Food-11
+        if [ -d extract_tmp/Food-11/training ]; then
+          src=extract_tmp/Food-11
+        else
+          src=extract_tmp
+        fi
+        mv "$src"/training "$src"/validation "$src"/evaluation Food-11/
+        rm -rf extract_tmp
+
+        echo "Listing contents of /data/Food-11 after extract stage:"
+        ls -l /data/Food-11
 
   transform-data:
     image: python:3.11
@@ -120,7 +131,7 @@ services:
         print("Wrote shards under /out")
         PY
 
-  upload-webdataset:
+  load-webdataset:
     image: rclone/rclone:latest
     depends_on:
       - shard-webdataset

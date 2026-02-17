@@ -217,14 +217,14 @@ Run the extract stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/local.yaml run extract-data
+docker compose -f ~/data-persist-chi/object/docker/local.yaml run --rm extract-data
 ```
 
 Run the transform stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/local.yaml run transform-data
+docker compose -f ~/data-persist-chi/object/docker/local.yaml run --rm transform-data
 ```
 
 
@@ -471,21 +471,21 @@ Run the extract stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/load.yaml run extract-data
+docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm extract-data
 ```
 
 Run the transform stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/load.yaml run transform-data
+docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm transform-data
 ```
 
 Run the load stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/load.yaml run load-data
+docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm load-data
 ```
 
 Confirm the upload by listing the mount (we expect a `Food-11/` directory):
@@ -665,28 +665,28 @@ Run the extract stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run extract-data
+docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm extract-data
 ```
 
 Run the transform stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run transform-data
+docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm transform-data
 ```
 
 Build the shards:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run shard-webdataset
+docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm shard-webdataset
 ```
 
-Upload the shards:
+Load the shards to S3:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run upload-webdataset
+docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm load-webdataset
 ```
 
 
@@ -782,28 +782,28 @@ Run the extract stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/lit.yaml run extract-data
+docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm extract-data
 ```
 
 Run the transform stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/lit.yaml run transform-data
+docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm transform-data
 ```
 
 Build the optimized dataset:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/lit.yaml run optimize-litdata
+docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm optimize-litdata
 ```
 
-Upload the optimized dataset:
+Load the optimized dataset to S3:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/lit.yaml run upload-litdata
+docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm load-litdata
 ```
 
 

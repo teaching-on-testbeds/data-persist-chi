@@ -46,28 +46,28 @@ Run the extract stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/lit.yaml run extract-data
+docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm extract-data
 ```
 
 Run the transform stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/lit.yaml run transform-data
+docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm transform-data
 ```
 
 Build the optimized dataset:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/lit.yaml run optimize-litdata
+docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm optimize-litdata
 ```
 
-Upload the optimized dataset:
+Load the optimized dataset to S3:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/lit.yaml run upload-litdata
+docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm load-litdata
 ```
 
 :::

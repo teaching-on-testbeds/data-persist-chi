@@ -53,21 +53,21 @@ Run the extract stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/load.yaml run extract-data
+docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm extract-data
 ```
 
 Run the transform stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/load.yaml run transform-data
+docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm transform-data
 ```
 
 Run the load stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/load.yaml run load-data
+docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm load-data
 ```
 
 Confirm the upload by listing the mount (we expect a `Food-11/` directory):

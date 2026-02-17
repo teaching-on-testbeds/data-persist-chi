@@ -48,28 +48,28 @@ Run the extract stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run extract-data
+docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm extract-data
 ```
 
 Run the transform stage:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run transform-data
+docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm transform-data
 ```
 
 Build the shards:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run shard-webdataset
+docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm shard-webdataset
 ```
 
-Upload the shards:
+Load the shards to S3:
 
 ```bash
 # run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run upload-webdataset
+docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm load-webdataset
 ```
 
 :::
