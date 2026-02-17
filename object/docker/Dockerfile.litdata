@@ -6,6 +6,6 @@ RUN python -m pip install --no-cache-dir --upgrade pip \
   && python -m pip install --no-cache-dir \
     pillow==10.4.0 \
     tqdm==4.66.5 \
-    litdata==0.2.32
+    litdata==0.2.32 --no-deps
 
 CMD ["python", "-c", "print('litdata optimize image ready')"]

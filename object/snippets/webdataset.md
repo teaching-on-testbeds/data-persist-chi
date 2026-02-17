@@ -60,6 +60,8 @@ Load the shards to S3:
 docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm load-webdataset
 ```
 
+Note: it is normal to occasionally see transient upload errors like "source file is being updated (size changed...)". This can happen if a shard is still being finalized while rclone starts uploading. It is fine as long as rclone succeeds on a retry and the final output shows 100% of shards transferred.
+
 :::
 
 ::: {.cell .markdown}

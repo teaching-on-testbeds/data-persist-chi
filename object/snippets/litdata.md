@@ -88,7 +88,7 @@ docker run -d --rm \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   --name jupyter \
   quay.io/jupyter/pytorch-notebook:latest \
-  bash -lc "pip -q install litdata==0.2.32 && start-notebook.sh"
+  bash -lc "pip -q install --no-deps litdata==0.2.32 && start-notebook.sh"
 ```
 
 Get the Jupyter token:
