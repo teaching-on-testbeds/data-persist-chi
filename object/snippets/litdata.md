@@ -124,11 +124,11 @@ sudo nload ens3
     
 to monitor network traffic. Take a screenshot while the benchmark is running. 
   
-In the Jupyter UI, open and run `litdata_streaming.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`.
+In the Jupyter UI, open and run `litdata_streaming.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
 Note that it will also create a `litdata_cache` directory in the workspace. It will keep chunks there (on the local disk) so they don't *always* have to be streamed from the remote object storage.
 
-Run the benchmark notebook *again* and note the results; it can be substantially faster on this run, since some of the data is already cached. Take a screenshot. You may notice that less data is transferred over the network on the second run.
+Run the benchmark notebook *again* and note the results; it can be substantially faster on this run, since some of the data is already cached. Take a screenshot. You may notice that less data is transferred over the network on the second run. We can tune `max_cache_size` and `max_pre_download` in the `StreamingDataset` to manage the tradeoff between network and local disk use.
 
 Close the browser tab and stop the container when you are done:
 

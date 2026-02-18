@@ -124,7 +124,7 @@ sudo nload ens3
 
 to monitor network traffic. Take a screenshot while the benchmark is running. You may notice a different network access pattern than in your previous tests!
 
-In the Jupyter UI, open and run `webdataset.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`.
+In the Jupyter UI, open and run `webdataset.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
 Close the browser tab for the Jupyter server running inside the instance, and stop the container when you are done:
 

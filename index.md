@@ -1125,7 +1125,7 @@ Open the printed URL in your browser, substituting the floating IP for `localhos
 
 In the Jupyter UI, open `imagefolder_local.ipynb`. In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, pointing at a local directory (`/mnt/Food-11/<split>`). The DataLoader reads individual image files from the mounted volume, decodes them (PIL), applies a resize/crop/normalize transform, and batches tensors.
 
-Run the notebook. When the benchmark finishes, it will write a JSON results file under `results/` and also print its results. You can interpret the throughput metrics as follows:
+Run the notebook. When the benchmark finishes, it will write a JSON results file under `results/` and also print its results. Download the JSON file from the `results/` folder in the Jupyter file browser. You can interpret the throughput metrics as follows:
 
 * `imgs/s` (images per second) - higher is better. This is the main steady-state metric for how quickly the input pipeline can produce training examples.
 * `batches/s` (batches per second) - higher is better. This is the same idea as `imgs/s`, but expressed in batches.
@@ -1394,7 +1394,7 @@ sudo nload ens3
 
 to watch the network traffic while the DataLoader is reading.
 
-Run the benchmark, and take a screenshot of the `nload` output showing inbound network traffic. When the benchmark is finished, it will print the results and write a JSON results file under `results/`.
+Run the benchmark, and take a screenshot of the `nload` output showing inbound network traffic. When the benchmark is finished, it will print the results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
 Use Ctrl + C to stop the running `nload` process.
 
@@ -1490,7 +1490,7 @@ sudo nload ens3
 
 to monitor network traffic. Take a screenshot while the benchmark is running.
 
-In the Jupyter UI, open and run `remote_one_sample.ipynb`. When the benchmark finishes, it will print results and write a JSON results file under `results/`.
+In the Jupyter UI, open and run `remote_one_sample.ipynb`. When the benchmark finishes, it will print results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
 Close the browser tab for the Jupyter server running inside the instance, and stop the container when you are done:
 
@@ -1620,7 +1620,7 @@ sudo nload ens3
 
 to monitor network traffic. Take a screenshot while the benchmark is running. You may notice a different network access pattern than in your previous tests!
 
-In the Jupyter UI, open and run `webdataset.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`.
+In the Jupyter UI, open and run `webdataset.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
 Close the browser tab for the Jupyter server running inside the instance, and stop the container when you are done:
 
@@ -1750,11 +1750,11 @@ sudo nload ens3
     
 to monitor network traffic. Take a screenshot while the benchmark is running. 
   
-In the Jupyter UI, open and run `litdata_streaming.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`.
+In the Jupyter UI, open and run `litdata_streaming.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
 Note that it will also create a `litdata_cache` directory in the workspace. It will keep chunks there (on the local disk) so they don't *always* have to be streamed from the remote object storage.
 
-Run the benchmark notebook *again* and note the results; it can be substantially faster on this run, since some of the data is already cached. Take a screenshot. You may notice that less data is transferred over the network on the second run.
+Run the benchmark notebook *again* and note the results; it can be substantially faster on this run, since some of the data is already cached. Take a screenshot. You may notice that less data is transferred over the network on the second run. We can tune `max_cache_size` and `max_pre_download` in the `StreamingDataset` to manage the tradeoff between network and local disk use.
 
 Close the browser tab and stop the container when you are done:
 

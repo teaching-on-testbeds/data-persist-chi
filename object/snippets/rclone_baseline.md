@@ -109,7 +109,7 @@ sudo nload ens3
 
 to watch the network traffic while the DataLoader is reading.
 
-Run the benchmark, and take a screenshot of the `nload` output showing inbound network traffic. When the benchmark is finished, it will print the results and write a JSON results file under `results/`.
+Run the benchmark, and take a screenshot of the `nload` output showing inbound network traffic. When the benchmark is finished, it will print the results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
 Use Ctrl + C to stop the running `nload` process.
 

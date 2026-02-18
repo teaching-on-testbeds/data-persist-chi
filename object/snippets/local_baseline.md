@@ -97,7 +97,7 @@ Open the printed URL in your browser, substituting the floating IP for `localhos
 
 In the Jupyter UI, open `imagefolder_local.ipynb`. In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, pointing at a local directory (`/mnt/Food-11/<split>`). The DataLoader reads individual image files from the mounted volume, decodes them (PIL), applies a resize/crop/normalize transform, and batches tensors.
 
-Run the notebook. When the benchmark finishes, it will write a JSON results file under `results/` and also print its results. You can interpret the throughput metrics as follows:
+Run the notebook. When the benchmark finishes, it will write a JSON results file under `results/` and also print its results. Download the JSON file from the `results/` folder in the Jupyter file browser. You can interpret the throughput metrics as follows:
 
 * `imgs/s` (images per second) - higher is better. This is the main steady-state metric for how quickly the input pipeline can produce training examples.
 * `batches/s` (batches per second) - higher is better. This is the same idea as `imgs/s`, but expressed in batches.

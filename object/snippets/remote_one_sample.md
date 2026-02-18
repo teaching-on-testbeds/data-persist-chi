@@ -75,7 +75,7 @@ sudo nload ens3
 
 to monitor network traffic. Take a screenshot while the benchmark is running.
 
-In the Jupyter UI, open and run `remote_one_sample.ipynb`. When the benchmark finishes, it will print results and write a JSON results file under `results/`.
+In the Jupyter UI, open and run `remote_one_sample.ipynb`. When the benchmark finishes, it will print results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
 Close the browser tab for the Jupyter server running inside the instance, and stop the container when you are done:
 
