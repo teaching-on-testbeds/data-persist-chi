@@ -2,8 +2,7 @@
 
 # Persistent storage on Chameleon
 
-You've done really well operationalizing the infrastructure and configuration of the runtime environment at GourmetGram! 
-Next, you're going to dig deeper into each stage of your model pipeline. But, there are two major issues you need to address first:
+You've done really well operationalizing the infrastructure and configuration of the runtime environment at GourmetGram, in [Build an MLOps Pipeline](https://teaching-on-testbeds.github.io/mlops-chi/)! Next, you're going to dig deeper into each stage of your model pipeline. But, there are two major issues you need to address first:
 
 * Applications and services in GourmetGram - including Jupyter services for ML experimentation, model registry services, even application services - save all their data to the *ephemeral* disk of the compute instances that they are running on. When the compute instance ends, the data is lost.
 * The training data for your food classifier model is also not persisted anywhere. Right now, you're only training on external data, which you can re-import at any time. But eventually, you will want to train on production data. You need an organized data repository in which to persist training data, and you want to make sure that when training your food classifier model, you will be able to pull data at a high enough rate to keep your powerful GPUs busy during training.
@@ -1401,6 +1400,8 @@ sudo nload ens3
 
 to watch the network traffic while the DataLoader is reading.
 
+In particular, note the current (`Curr`) incoming data rate shown to the side of the ASCII plot.
+
 Run the benchmark, and take a screenshot of the `nload` output showing inbound network traffic. When the benchmark is finished, it will print the results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
 Use Ctrl + C to stop the running `nload` process.
@@ -1495,7 +1496,7 @@ Before you start the benchmark in the Jupyter UI, open a separate SSH terminal o
 sudo nload ens3
 ```
 
-to monitor network traffic. Take a screenshot while the benchmark is running.
+to monitor network traffic. In particular, note the current (`Curr`) incoming data rate shown to the side of the ASCII plot. Take a screenshot while the benchmark is running.
 
 In the Jupyter UI, open and run `remote_one_sample.ipynb`. When the benchmark finishes, it will print results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
@@ -1633,7 +1634,7 @@ Before you start the benchmark in the Jupyter UI, open a separate SSH terminal o
 sudo nload ens3
 ```
 
-to monitor network traffic. Take a screenshot while the benchmark is running. You may notice a different network access pattern than in your previous tests!
+to monitor network traffic. In particular, note the current (`Curr`) incoming data rate shown to the side of the ASCII plot. Take a screenshot while the benchmark is running. You may notice a different network access pattern than in your previous tests!
 
 In the Jupyter UI, open and run `webdataset.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
@@ -1771,7 +1772,7 @@ Before you start the benchmark in the Jupyter UI, open a separate SSH terminal o
 sudo nload ens3
 ``` 
     
-to monitor network traffic. Take a screenshot while the benchmark is running. 
+to monitor network traffic. In particular, note the current (`Curr`) incoming data rate shown to the side of the ASCII plot. Take a screenshot while the benchmark is running.
   
 In the Jupyter UI, open and run `litdata_streaming.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
