@@ -1,10 +1,11 @@
-FROM quay.io/jupyter/pytorch-notebook:latest
-
-USER root
+FROM python:3.11-slim
 
 WORKDIR /work
 
 RUN python -m pip install --no-cache-dir --upgrade pip \
+  && python -m pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+    torch==2.10.0 \
+    torchvision==0.25.0 \
   && python -m pip install --no-cache-dir \
     litdata==0.2.60
 
