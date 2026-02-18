@@ -23,16 +23,12 @@ services:
       - -c
       - |
         set -e
-        python - <<'PY'
+        cat >/tmp/optimize_litdata.py <<'PY'
         import os
         from pathlib import Path
+
         from PIL import Image
         from litdata import optimize
-
-        data_root = Path("/data/Food-11")
-        out_root = Path("/out")
-        chunk_bytes = os.environ.get("LITDATA_CHUNK_BYTES", "64MB")
-        num_workers = int(os.environ.get("LITDATA_NUM_WORKERS", "4"))
 
         def records_for_split(split_dir: Path):
             records = []
@@ -50,23 +46,34 @@ services:
                 "label": int(sample["label"]),
             }
 
-        for split in ["training", "validation", "evaluation"]:
-            split_dir = data_root / split
-            if not split_dir.exists():
-                continue
-            out_dir = out_root / split
-            out_dir.mkdir(parents=True, exist_ok=True)
-            inputs = records_for_split(split_dir)
-            optimize(
-                fn=encode_sample,
-                inputs=inputs,
-                output_dir=str(out_dir),
-                chunk_bytes=chunk_bytes,
-                num_workers=num_workers,
-            )
+        def main():
+            data_root = Path("/data/Food-11")
+            out_root = Path("/out")
+            chunk_bytes = os.environ.get("LITDATA_CHUNK_BYTES", "64MB")
+            num_workers = int(os.environ.get("LITDATA_NUM_WORKERS", "4"))
 
-        print("Wrote LitData chunks under /out")
+            for split in ["training", "validation", "evaluation"]:
+                split_dir = data_root / split
+                if not split_dir.exists():
+                    continue
+                out_dir = out_root / split
+                out_dir.mkdir(parents=True, exist_ok=True)
+                inputs = records_for_split(split_dir)
+                optimize(
+                    fn=encode_sample,
+                    inputs=inputs,
+                    output_dir=str(out_dir),
+                    chunk_bytes=chunk_bytes,
+                    num_workers=num_workers,
+                )
+
+            print("Wrote LitData chunks under /out")
+
+        if __name__ == "__main__":
+            main()
         PY
+
+        python /tmp/optimize_litdata.py
 
   load-litdata:
     image: rclone/rclone:latest

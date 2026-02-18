@@ -66,6 +66,13 @@ After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to 
 
 Note: it is normal to occasionally see transient upload errors like "source file is being updated (size changed...)". This can happen if a shard is still being finalized while rclone starts uploading. It is fine as long as rclone succeeds on a retry and the final output shows 100% of shards transferred.
 
+To free disk space after you finish the load step, remove the local shard output volume:
+
+```bash
+# run on node-object
+docker volume rm food11-webdataset_wds_out
+```
+
 :::
 
 ::: {.cell .markdown}

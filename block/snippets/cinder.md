@@ -23,13 +23,6 @@ username = os.getenv('USER')
 ```
 :::
 
-::: {.cell .code}
-```python
-# run in Chameleon Jupyter environment
-# reuse the lease created earlier
-l = lease.get_lease(f"lease-block-{username}")
-```
-:::
 
 ::: {.cell .code}
 ```python
@@ -202,6 +195,15 @@ When we boot from volume, we create the server with a block device mapping that 
 ::: {.cell .code}
 ```python
 # run in Chameleon Jupyter environment
+# reuse the lease created earlier
+l = lease.get_lease(f"lease-block-{username}")
+```
+:::
+
+
+::: {.cell .code}
+```python
+# run in Chameleon Jupyter environment
 delete_on_termination = True
 
 bdm = [{
@@ -289,7 +291,7 @@ On the instance, run:
 df -h /
 ```
 
-Verify that the root filesystem size reflects the boot volume size you requested.
+Verify that the size of the root filesystem (mounted at `/`) reflects the boot volume size you requested.
 
 :::
 

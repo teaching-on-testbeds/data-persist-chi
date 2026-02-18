@@ -615,11 +615,6 @@ context.choose_site(default="KVM@TACC")
 username = os.getenv('USER')
 ```
 
-```python
-# run in Chameleon Jupyter environment
-# reuse the lease created earlier
-l = lease.get_lease(f"lease-block-{username}")
-```
 
 ```python
 # run in Chameleon Jupyter environment
@@ -749,6 +744,13 @@ When we boot from volume, we create the server with a block device mapping that 
 
 ```python
 # run in Chameleon Jupyter environment
+# reuse the lease created earlier
+l = lease.get_lease(f"lease-block-{username}")
+```
+
+
+```python
+# run in Chameleon Jupyter environment
 delete_on_termination = True
 
 bdm = [{
@@ -822,7 +824,7 @@ On the instance, run:
 df -h /
 ```
 
-Verify that the root filesystem size reflects the boot volume size you requested.
+Verify that the size of the root filesystem (mounted at `/`) reflects the boot volume size you requested.
 
 
 
@@ -895,7 +897,7 @@ username = os.getenv('USER') # all exp resources will have this prefix
 ```
 
 
-We will bring up a `m1.large` flavor server with the `CC-Ubuntu24.04` disk image. 
+We will bring up a `m1.xlarge` flavor server with the `CC-Ubuntu24.04` disk image. 
 
 > **Note**: the following cell brings up a server only if you don't already have one with the same name! (Regardless of its error state.) If you have a server in ERROR state already, delete it first in the Horizon GUI before you run this cell.
 
@@ -907,7 +909,7 @@ First we will reserve the VM instance for 4 hours, starting now:
 
 ```python
 l = lease.Lease(f"lease-object-{username}", duration=datetime.timedelta(hours=4))
-l.add_flavor_reservation(id=chi.server.get_flavor_id("m1.large"), amount=1)
+l.add_flavor_reservation(id=chi.server.get_flavor_id("m1.xlarge"), amount=1)
 l.submit(idempotent=True)
 ```
 
@@ -1007,6 +1009,14 @@ s.execute("sudo groupadd -f docker; sudo usermod -aG docker $USER")
 ```
 
 
+and we also install some software on the host that we will use to monitor network usage, when we are streaming to/from object store.
+
+
+```python
+s.execute("sudo apt-get update; sudo apt-get -y install nload")
+```
+
+
 
 ## Open an SSH session
 
@@ -1039,6 +1049,8 @@ It uses a shared Docker volume named `food11_local_baseline`:
 
 * `extract-data` downloads and unzips Food11 into the volume.
 * `transform-data` reorganizes images into class subdirectories so they can be read by `ImageFolder`.
+
+In these stages, we are downloading the raw data into a staging area, then transforming it into a layout that is convenient for training input. We are not loading the data to its permanent home yet. In later stages of this lab, we will keep this staging area around (as a Docker volume), reuse the organized data, and then load it into object storage or convert it into other formats.
 
 After the transform stage, the volume contains a normal directory tree (one file per image) that looks like this when mounted at `/mnt/Food-11`:
 
@@ -1085,7 +1097,7 @@ docker compose -f ~/data-persist-chi/object/docker/local.yaml run --rm transform
 
 Now run a Jupyter container and mount:
 
-* the Food11 data volume at `/mnt/Food-11` (read-only)
+* the Food11 data volume at `/mnt` (read-only). The dataset will be available at `/mnt/Food-11` inside the container.
 * the lab notebooks at `/home/jovyan/work`
 
 Run:
@@ -1097,7 +1109,7 @@ docker run -d --rm \
   --shm-size 8G \
   -e FOOD11_DATA_DIR=/mnt/Food-11 \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
-  -v food11_local_baseline:/mnt/Food-11:ro \
+  -v food11_local_baseline:/mnt:ro \
   --name jupyter \
   quay.io/jupyter/pytorch-notebook:latest
 ```
@@ -1111,11 +1123,17 @@ docker exec jupyter jupyter server list
 
 Open the printed URL in your browser, substituting the floating IP for `localhost`.
 
-In the Jupyter UI, open and run `imagefolder_local.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
+In the Jupyter UI, open `imagefolder_local.ipynb`. In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, pointing at a local directory (`/mnt/Food-11/<split>`). The DataLoader reads individual image files from the mounted volume, decodes them (PIL), applies a resize/crop/normalize transform, and batches tensors.
 
-In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, pointing at a local directory (`/mnt/Food-11/<split>`). The DataLoader reads individual image files from the mounted volume, decodes them (PIL), applies a resize/crop/normalize transform, and batches tensors.
+Run the notebook. When the benchmark finishes, it will write a JSON results file under `results/` and also print its results. You can interpret the throughput metrics as follows:
 
-When you are done with the local baseline, stop the container:
+* `imgs/s` (images per second) - higher is better. This is the main steady-state metric for how quickly the input pipeline can produce training examples.
+* `batches/s` (batches per second) - higher is better. This is the same idea as `imgs/s`, but expressed in batches.
+* `avg_batch_s` (average seconds per batch) - lower is better. This is approximately the inverse of `batches/s`.
+
+In later parts of the lab, we will compare these same metrics across different storage and dataset formats.
+
+When you are done with the local baseline, close the browser tab with the Jupyter service running on the instance, and then stop the container:
 
 ```bash
 # run on node-object
@@ -1160,9 +1178,8 @@ To access this object storage using the S3 API from our compute instance and fro
 
 In Chameleon, we can generate an EC2-style credential (access key + secret key) for our current user and project.
 
-Important: treat the secret like a password. Save it somewhere safe. If you share screenshots or publish notebooks, clear the cell output first.
+Important: treat the secret like a password. Save it somewhere safe. If you share screenshots or publish notebooks that include a credential, clear the cell output first.
 
-The following cells run in the Chameleon Jupyter environment.
 
 
 ```python
@@ -1177,16 +1194,15 @@ context.choose_site(default="CHI@TACC")
 
 ```python
 # run in Chameleon Jupyter environment
-conn = connection.from_config()
+conn = chi.clients.connection()
 
 project_id = conn.current_project_id
 identity_ep = conn.session.get_endpoint(service_type="identity", interface="public")
 url = f"{identity_ep}/v3/users/{conn.current_user_id}/credentials/OS-EC2"
 
-payload = {"tenant_id": project_id}
-response = conn.session.post(url, json=payload)
-response.raise_for_status()
-ec2 = response.json()["credential"]
+resp = conn.session.post(url, json={"tenant_id": project_id})
+resp.raise_for_status()
+ec2 = resp.json()["credential"]
 
 print("EC2 Access:", ec2["access"])
 print("EC2 Secret:", ec2["secret"])
@@ -1268,6 +1284,7 @@ rclone mount rclone_s3:object-chi-netID /tmp/rclone-tests/object \
   --read-only \
   --allow-other \
   --vfs-cache-mode off \
+  --dir-cache-time 10s \
   --daemon
 ```
 
@@ -1280,13 +1297,15 @@ In this part, we will:
 1. Run an ETL pipeline to upload Food11 to the S3 bucket.
 2. Use the rclone mount from the previous step.
 3. Pass the mount into a Jupyter container.
-4. Run the ImageFolder benchmark.
+4. Run the ImageFolder benchmark, but this time with rclone mount that is actually a remote S3 bucket, not a local disk.
 
 
 
-### ETL pipeline (extract + transform + load to S3)
+### ETL pipeline (load to S3)
 
 The pipeline stages are defined in `~/data-persist-chi/object/docker/load.yaml`.
+
+This pipeline re-uses the extract and first transform step from the local baseline: we kept the organized Food11 directory tree in a Docker volume (`food11_local_baseline`). This stage mounts that staging volume read-only and loads its contents into S3.
 
 It will upload the Food11 directory tree to:
 
@@ -1319,26 +1338,14 @@ First, set the bucket/container name (replace **netID**):
 export RCLONE_CONTAINER=object-chi-netID
 ```
 
-Run the extract stage:
-
-```bash
-# run on node-object
-docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm extract-data
-```
-
-Run the transform stage:
-
-```bash
-# run on node-object
-docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm transform-data
-```
-
 Run the load stage:
 
 ```bash
 # run on node-object
 docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm load-data
 ```
+
+After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to "Object Store" > "Containers". Click on your container (`object-chi-netID`) and you should see a `Food-11/` prefix. Inside it, expect `training/`, `validation/`, and `evaluation/`, each with `class_XX/` subdirectories and JPEG images.
 
 Confirm the upload by listing the mount (we expect a `Food-11/` directory):
 
@@ -1376,11 +1383,22 @@ docker exec jupyter jupyter server list
 
 Open the printed URL in your browser, substituting the floating IP for `localhost`.
 
-In the Jupyter UI, open and run `imagefolder_rclone_mount.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
+In the Jupyter UI, open `imagefolder_rclone_mount.ipynb`. In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, but the filesystem backing it is an rclone FUSE mount of the S3 bucket. The DataLoader still does ordinary file opens and reads, but every read is translated into S3 GET requests under the hood.
 
-In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, but the filesystem backing it is an rclone FUSE mount of the S3 bucket. The DataLoader still does ordinary file opens and reads, but every read is translated into S3 GET requests under the hood.
+Before you start the benchmark in the Jupyter UI, open a separate SSH terminal on the node (not inside the Jupyter container) and run:
 
-Stop the container when you are done:
+```bash
+# run on node-object
+sudo nload ens3
+```
+
+to watch the network traffic while the DataLoader is reading.
+
+Run the benchmark, and take a screenshot of the `nload` output showing inbound network traffic. When the benchmark is finished, it will print the results and write a JSON results file under `results/`.
+
+Use Ctrl + C to stop the running `nload` process.
+
+Close the browser tab for the Jupyter server on the instance, and stop the container when you are done:
 
 ```bash
 # run on node-object
@@ -1404,9 +1422,10 @@ fusermount -u /tmp/rclone-tests/object
 
 In this part, we will read training data directly from S3 without mounting it as a filesystem.
 
-The DataLoader will load each sample by making a separate S3 request for that image. This pattern is simple, but it often performs poorly at scale because it has high per-sample overhead.
 
-We will run a benchmark notebook that uses `fsspec` to open remote objects and `PIL` to decode images.
+We will run a benchmark notebook that uses `fsspec` to open remote objects and `PIL` to decode images. In this notebook, the Dataset is a small custom `torch.utils.data.Dataset` that first lists objects once to build an index (not timed), then loads each sample by doing an S3 GET for that one image via `fsspec`, decoding with PIL, and applying the usual resize/crop/normalize transform. The DataLoader batches those decoded tensors.
+
+The DataLoader will load each sample by making a separate S3 request for that image. This pattern is simple, but it often performs poorly at scale because it has high per-sample overhead.
 
 This benchmark assumes the dataset is already uploaded as one object per image under `s3://object-chi-netID/Food-11/`, for example:
 
@@ -1421,6 +1440,8 @@ s3://object-chi-netID/Food-11/
       ...
     ...
 ```
+
+which we have done in the previous stage, so there is no ETL step here.
 
 
 
@@ -1444,10 +1465,11 @@ docker run -d --rm \
   -e S3_ENDPOINT_URL=https://chi.tacc.chameleoncloud.org:7480 \
   -e S3_BUCKET=object-chi-netID \
   -e S3_PREFIX=Food-11 \
-  -e FOOD11_SPLIT=evaluation \
+  -e FOOD11_SPLIT=training \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   --name jupyter \
-  quay.io/jupyter/pytorch-notebook:latest
+  quay.io/jupyter/pytorch-notebook:latest \
+  bash -lc "pip -q install s3fs && start-notebook.py"
 ```
 
 Get the Jupyter token:
@@ -1459,11 +1481,18 @@ docker exec jupyter jupyter server list
 
 Open the printed URL in your browser, substituting the floating IP for `localhost`.
 
-In the Jupyter UI, open and run `remote_one_sample.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
+Before you start the benchmark in the Jupyter UI, open a separate SSH terminal on the node (not inside the Jupyter container) and run:
 
-In this notebook, the Dataset is a small custom `torch.utils.data.Dataset` that first lists objects once to build an index (not timed), then loads each sample by doing an S3 GET for that one image via `fsspec`, decoding with PIL, and applying the usual resize/crop/normalize transform. The DataLoader batches those decoded tensors.
+```bash
+# run on node-object
+sudo nload ens3
+```
 
-Stop the container when you are done:
+to monitor network traffic. Take a screenshot while the benchmark is running.
+
+In the Jupyter UI, open and run `remote_one_sample.ipynb`. When the benchmark finishes, it will print results and write a JSON results file under `results/`.
+
+Close the browser tab for the Jupyter server running inside the instance, and stop the container when you are done:
 
 ```bash
 # run on node-object
@@ -1476,13 +1505,17 @@ docker stop jupyter
 
 In this part, we will create larger shard objects (tar files) and stream from those shards during training input.
 
+In this benchmark notebook, the Dataset is an `IterableDataset` that assigns shard files across DataLoader workers, opens each shard via `fsspec`, streams the tar entries, and yields `(image_tensor, label)` pairs. The DataLoader batches those streamed samples.
+
 Compared to reading one S3 object per sample, sharding reduces per-sample overhead by reading many samples from each shard.
 
 
 
-### ETL pipeline (extract + transform + shard + upload)
+### ETL pipeline (shard + load)
 
 The pipeline stages are defined in `~/data-persist-chi/object/docker/wds.yaml`.
+
+This pipeline re-uses the extract and first transform step from the local baseline: we kept the organized Food11 directory tree in a Docker volume (`food11_local_baseline`). This stage reads images from that staging volume (read-only), writes shards to a separate output volume, and then loads those shards into S3.
 
 It will upload tar shards to:
 
@@ -1513,20 +1546,6 @@ First, set the bucket/container name (replace **netID**):
 export RCLONE_CONTAINER=object-chi-netID
 ```
 
-Run the extract stage:
-
-```bash
-# run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm extract-data
-```
-
-Run the transform stage:
-
-```bash
-# run on node-object
-docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm transform-data
-```
-
 Build the shards:
 
 ```bash
@@ -1539,6 +1558,17 @@ Load the shards to S3:
 ```bash
 # run on node-object
 docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm load-webdataset
+```
+
+After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to "Object Store" > "Containers". Click on your container (`object-chi-netID`) and you should see a `Food-11-webdataset/` prefix. Inside it, expect `training/`, `validation/`, and `evaluation/` directories with multiple `shard-*.tar` objects.
+
+Note: it is normal to occasionally see transient upload errors like "source file is being updated (size changed...)". This can happen if a shard is still being finalized while rclone starts uploading. It is fine as long as rclone succeeds on a retry and the final output shows 100% of shards transferred.
+
+To free disk space after you finish the load step, remove the local shard output volume:
+
+```bash
+# run on node-object
+docker volume rm food11-webdataset_wds_out
 ```
 
 
@@ -1563,10 +1593,11 @@ docker run -d --rm \
   -e S3_ENDPOINT_URL=https://chi.tacc.chameleoncloud.org:7480 \
   -e S3_BUCKET=object-chi-netID \
   -e S3_PREFIX=Food-11-webdataset \
-  -e FOOD11_SPLIT=evaluation \
+  -e FOOD11_SPLIT=training \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   --name jupyter \
-  quay.io/jupyter/pytorch-notebook:latest
+  quay.io/jupyter/pytorch-notebook:latest \
+  bash -lc "pip -q install s3fs webdataset==1.0.2 && start-notebook.py"
 ```
 
 Get the Jupyter token:
@@ -1576,13 +1607,22 @@ Get the Jupyter token:
 docker exec jupyter jupyter server list
 ```
 
+It may take a few moments for the server to start (for the `pip install` to finish), so if no servers are listed in the output of that command, just wait a minute and then try again.
+
 Open the printed URL in your browser, substituting the floating IP for `localhost`.
 
-In the Jupyter UI, open and run `webdataset.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
+Before you start the benchmark in the Jupyter UI, open a separate SSH terminal on the node (not inside the Jupyter container) and run:
 
-In this notebook, the Dataset is an `IterableDataset` that assigns shard files across DataLoader workers, opens each shard via `fsspec`, streams the tar entries, and yields `(image_tensor, label)` pairs. The DataLoader batches those streamed samples.
+```bash
+# run on node-object
+sudo nload ens3
+```
 
-Stop the container when you are done:
+to monitor network traffic. Take a screenshot while the benchmark is running. You may notice a different network access pattern than in your previous tests!
+
+In the Jupyter UI, open and run `webdataset.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`.
+
+Close the browser tab for the Jupyter server running inside the instance, and stop the container when you are done:
 
 ```bash
 # run on node-object
@@ -1593,13 +1633,19 @@ docker stop jupyter
 
 ## Optimized baseline: LitData streaming over S3
 
-In this part, we will write the dataset in a LitData optimized format and then stream it from S3.
+In this part, we will write the dataset in a [LitData](https://github.com/Lightning-AI/litdata/) optimized format and then stream it from S3.
+
+In this benchmark notebook, the Dataset is `litdata.StreamingDataset`, pointing at `s3://<bucket>/<prefix>/<split>`. It streams data into a local cache directory inside the container (`./litdata_cache` by default), and the `StreamingDataLoader` iterates it with worker processes. We decode each sample to a tensor in the collate function and then measure steady-state throughput.
+
+This approach combines sharding with some other optimizations + a local cache.
 
 
 
-### ETL pipeline (extract + transform + optimize + upload)
+### ETL pipeline (optimize + load)
 
 The pipeline stages are defined in `~/data-persist-chi/object/docker/lit.yaml`.
+
+This pipeline re-uses the extract and first transform step from the local baseline: we kept the organized Food11 directory tree in a Docker volume (`food11_local_baseline`). This stage reads images from that staging volume (read-only), writes LitData output to a separate output volume, and then loads that output into S3.
 
 It will upload optimized data to:
 
@@ -1630,20 +1676,6 @@ First, set the bucket/container name (replace **netID**):
 export RCLONE_CONTAINER=object-chi-netID
 ```
 
-Run the extract stage:
-
-```bash
-# run on node-object
-docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm extract-data
-```
-
-Run the transform stage:
-
-```bash
-# run on node-object
-docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm transform-data
-```
-
 Build the optimized dataset:
 
 ```bash
@@ -1658,6 +1690,15 @@ Load the optimized dataset to S3:
 docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm load-litdata
 ```
 
+After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to "Object Store" > "Containers". Click on your container (`object-chi-netID`) and you should see a `Food-11-litdata/` prefix. Inside it, expect `training/`, `validation/`, and `evaluation/` directories containing LitData metadata and chunk files.
+
+To free disk space after you finish the load step, remove the local LitData output volume:
+
+```bash
+# run on node-object
+docker volume rm food11-litdata_lit_out
+```
+
 
 
 ### Run Jupyter with S3 credentials as environment variables
@@ -1670,7 +1711,7 @@ In the following command:
 * replace **SECRET_ACCESS_KEY** with your EC2 Secret
 * replace **netID** in the bucket name
 
-This step also installs `litdata` in the Jupyter container before starting the notebook server.
+This step installs `litdata` in the Jupyter container before starting the notebook server.
 
 ```bash
 # run on node-object
@@ -1682,11 +1723,11 @@ docker run -d --rm \
   -e S3_ENDPOINT_URL=https://chi.tacc.chameleoncloud.org:7480 \
   -e S3_BUCKET=object-chi-netID \
   -e S3_PREFIX=Food-11-litdata \
-  -e FOOD11_SPLIT=evaluation \
+  -e FOOD11_SPLIT=training \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   --name jupyter \
   quay.io/jupyter/pytorch-notebook:latest \
-  bash -lc "pip -q install litdata==0.2.32 && start-notebook.sh"
+  bash -lc "pip -q install litdata==0.2.60 && start-notebook.py"
 ```
 
 Get the Jupyter token:
@@ -1696,13 +1737,26 @@ Get the Jupyter token:
 docker exec jupyter jupyter server list
 ```
 
+It may take a few moments for the server to start (for the `pip install` to finish), so if no servers are listed in the output of that command, just wait a minute and then try again.
+
 Open the printed URL in your browser, substituting the floating IP for `localhost`.
 
-In the Jupyter UI, open and run `litdata_streaming.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
+Before you start the benchmark in the Jupyter UI, open a separate SSH terminal on the node (not inside the Jupyter container) and run:
 
-In this notebook, the Dataset is `litdata.StreamingDataset`, pointing at `s3://<bucket>/<prefix>/<split>`. It streams data into a local cache directory inside the container (`./litdata_cache` by default), and the `StreamingDataLoader` iterates it with worker processes. We decode each sample to a tensor in the collate function and then measure steady-state throughput.
+```bash
+# run on node-object
+sudo nload ens3
+``` 
+    
+to monitor network traffic. Take a screenshot while the benchmark is running. 
+  
+In the Jupyter UI, open and run `litdata_streaming.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`.
 
-Stop the container when you are done:
+Note that it will also create a `litdata_cache` directory in the workspace. It will keep chunks there (on the local disk) so they don't *always* have to be streamed from the remote object storage.
+
+Run the benchmark notebook *again* and note the results; it can be substantially faster on this run, since some of the data is already cached. Take a screenshot. You may notice that less data is transferred over the network on the second run.
+
+Close the browser tab and stop the container when you are done:
 
 ```bash
 # run on node-object

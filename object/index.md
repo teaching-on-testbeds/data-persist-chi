@@ -271,7 +271,7 @@ Open the printed URL in your browser, substituting the floating IP for `localhos
 
 In the Jupyter UI, open `imagefolder_local.ipynb`. In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, pointing at a local directory (`/mnt/Food-11/<split>`). The DataLoader reads individual image files from the mounted volume, decodes them (PIL), applies a resize/crop/normalize transform, and batches tensors.
 
-Run the notebook. When the benchmark finishes, it will write a JSON results file under `results/` and also print its results. You can interpret the throughput metrics as follows:
+Run the notebook. When the benchmark finishes, it will write a JSON results file under `results/` and also print its results. Download the JSON file from the `results/` folder in the Jupyter file browser. You can interpret the throughput metrics as follows:
 
 * `imgs/s` (images per second) - higher is better. This is the main steady-state metric for how quickly the input pipeline can produce training examples.
 * `batches/s` (batches per second) - higher is better. This is the same idea as `imgs/s`, but expressed in batches.
@@ -540,7 +540,7 @@ sudo nload ens3
 
 to watch the network traffic while the DataLoader is reading.
 
-Run the benchmark, and take a screenshot of the `nload` output showing inbound network traffic. When the benchmark is finished, it will print the results and write a JSON results file under `results/`.
+Run the benchmark, and take a screenshot of the `nload` output showing inbound network traffic. When the benchmark is finished, it will print the results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
 Use Ctrl + C to stop the running `nload` process.
 
@@ -636,7 +636,7 @@ sudo nload ens3
 
 to monitor network traffic. Take a screenshot while the benchmark is running.
 
-In the Jupyter UI, open and run `remote_one_sample.ipynb`. When the benchmark finishes, it will print results and write a JSON results file under `results/`.
+In the Jupyter UI, open and run `remote_one_sample.ipynb`. When the benchmark finishes, it will print results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
 Close the browser tab for the Jupyter server running inside the instance, and stop the container when you are done:
 
@@ -710,6 +710,13 @@ After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to 
 
 Note: it is normal to occasionally see transient upload errors like "source file is being updated (size changed...)". This can happen if a shard is still being finalized while rclone starts uploading. It is fine as long as rclone succeeds on a retry and the final output shows 100% of shards transferred.
 
+To free disk space after you finish the load step, remove the local shard output volume:
+
+```bash
+# run on node-object
+docker volume rm food11-webdataset_wds_out
+```
+
 
 
 ### Run Jupyter with S3 credentials as environment variables
@@ -759,7 +766,7 @@ sudo nload ens3
 
 to monitor network traffic. Take a screenshot while the benchmark is running. You may notice a different network access pattern than in your previous tests!
 
-In the Jupyter UI, open and run `webdataset.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`.
+In the Jupyter UI, open and run `webdataset.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
 Close the browser tab for the Jupyter server running inside the instance, and stop the container when you are done:
 
@@ -772,7 +779,11 @@ docker stop jupyter
 
 ## Optimized baseline: LitData streaming over S3
 
-In this part, we will write the dataset in a LitData optimized format and then stream it from S3.
+In this part, we will write the dataset in a [LitData](https://github.com/Lightning-AI/litdata/) optimized format and then stream it from S3.
+
+In this benchmark notebook, the Dataset is `litdata.StreamingDataset`, pointing at `s3://<bucket>/<prefix>/<split>`. It streams data into a local cache directory inside the container (`./litdata_cache` by default), and the `StreamingDataLoader` iterates it with worker processes. We decode each sample to a tensor in the collate function and then measure steady-state throughput.
+
+This approach combines sharding with some other optimizations + a local cache.
 
 
 
@@ -827,6 +838,13 @@ docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm load-litdat
 
 After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to "Object Store" > "Containers". Click on your container (`object-chi-netID`) and you should see a `Food-11-litdata/` prefix. Inside it, expect `training/`, `validation/`, and `evaluation/` directories containing LitData metadata and chunk files.
 
+To free disk space after you finish the load step, remove the local LitData output volume:
+
+```bash
+# run on node-object
+docker volume rm food11-litdata_lit_out
+```
+
 
 
 ### Run Jupyter with S3 credentials as environment variables
@@ -865,13 +883,26 @@ Get the Jupyter token:
 docker exec jupyter jupyter server list
 ```
 
+It may take a few moments for the server to start (for the `pip install` to finish), so if no servers are listed in the output of that command, just wait a minute and then try again.
+
 Open the printed URL in your browser, substituting the floating IP for `localhost`.
 
-In the Jupyter UI, open and run `litdata_streaming.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
+Before you start the benchmark in the Jupyter UI, open a separate SSH terminal on the node (not inside the Jupyter container) and run:
 
-In this notebook, the Dataset is `litdata.StreamingDataset`, pointing at `s3://<bucket>/<prefix>/<split>`. It streams data into a local cache directory inside the container (`./litdata_cache` by default), and the `StreamingDataLoader` iterates it with worker processes. We decode each sample to a tensor in the collate function and then measure steady-state throughput.
+```bash
+# run on node-object
+sudo nload ens3
+``` 
+    
+to monitor network traffic. Take a screenshot while the benchmark is running. 
+  
+In the Jupyter UI, open and run `litdata_streaming.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
-Stop the container when you are done:
+Note that it will also create a `litdata_cache` directory in the workspace. It will keep chunks there (on the local disk) so they don't *always* have to be streamed from the remote object storage.
+
+Run the benchmark notebook *again* and note the results; it can be substantially faster on this run, since some of the data is already cached. Take a screenshot. You may notice that less data is transferred over the network on the second run.
+
+Close the browser tab and stop the container when you are done:
 
 ```bash
 # run on node-object
