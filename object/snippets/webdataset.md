@@ -5,6 +5,8 @@
 
 In this part, we will create larger shard objects (tar files) and stream from those shards during training input.
 
+In this benchmark notebook, the Dataset is an `IterableDataset` that assigns shard files across DataLoader workers, opens each shard via `fsspec`, streams the tar entries, and yields `(image_tensor, label)` pairs. The DataLoader batches those streamed samples.
+
 Compared to reading one S3 object per sample, sharding reduces per-sample overhead by reading many samples from each shard.
 
 :::
@@ -102,13 +104,22 @@ Get the Jupyter token:
 docker exec jupyter jupyter server list
 ```
 
+It may take a few moments for the server to start (for the `pip install` to finish), so if no servers are listed in the output of that command, just wait a minute and then try again.
+
 Open the printed URL in your browser, substituting the floating IP for `localhost`.
 
-In the Jupyter UI, open and run `webdataset.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
+Before you start the benchmark in the Jupyter UI, open a separate SSH terminal on the node (not inside the Jupyter container) and run:
 
-In this notebook, the Dataset is an `IterableDataset` that assigns shard files across DataLoader workers, opens each shard via `fsspec`, streams the tar entries, and yields `(image_tensor, label)` pairs. The DataLoader batches those streamed samples.
+```bash
+# run on node-object
+sudo nload ens3
+```
 
-Stop the container when you are done:
+to monitor network traffic. Take a screenshot while the benchmark is running. You may notice a different network access pattern than in your previous tests!
+
+In the Jupyter UI, open and run `webdataset.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`.
+
+Close the browser tab for the Jupyter server running inside the instance, and stop the container when you are done:
 
 ```bash
 # run on node-object

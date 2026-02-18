@@ -5,9 +5,10 @@
 
 In this part, we will read training data directly from S3 without mounting it as a filesystem.
 
-The DataLoader will load each sample by making a separate S3 request for that image. This pattern is simple, but it often performs poorly at scale because it has high per-sample overhead.
 
-We will run a benchmark notebook that uses `fsspec` to open remote objects and `PIL` to decode images.
+We will run a benchmark notebook that uses `fsspec` to open remote objects and `PIL` to decode images. In this notebook, the Dataset is a small custom `torch.utils.data.Dataset` that first lists objects once to build an index (not timed), then loads each sample by doing an S3 GET for that one image via `fsspec`, decoding with PIL, and applying the usual resize/crop/normalize transform. The DataLoader batches those decoded tensors.
+
+The DataLoader will load each sample by making a separate S3 request for that image. This pattern is simple, but it often performs poorly at scale because it has high per-sample overhead.
 
 This benchmark assumes the dataset is already uploaded as one object per image under `s3://object-chi-netID/Food-11/`, for example:
 
@@ -22,6 +23,8 @@ s3://object-chi-netID/Food-11/
       ...
     ...
 ```
+
+which we have done in the previous stage, so there is no ETL step here.
 
 :::
 
@@ -63,11 +66,18 @@ docker exec jupyter jupyter server list
 
 Open the printed URL in your browser, substituting the floating IP for `localhost`.
 
-In the Jupyter UI, open and run `remote_one_sample.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
+Before you start the benchmark in the Jupyter UI, open a separate SSH terminal on the node (not inside the Jupyter container) and run:
 
-In this notebook, the Dataset is a small custom `torch.utils.data.Dataset` that first lists objects once to build an index (not timed), then loads each sample by doing an S3 GET for that one image via `fsspec`, decoding with PIL, and applying the usual resize/crop/normalize transform. The DataLoader batches those decoded tensors.
+```bash
+# run on node-object
+sudo nload ens3
+```
 
-Stop the container when you are done:
+to monitor network traffic. Take a screenshot while the benchmark is running.
+
+In the Jupyter UI, open and run `remote_one_sample.ipynb`. When the benchmark finishes, it will print results and write a JSON results file under `results/`.
+
+Close the browser tab for the Jupyter server running inside the instance, and stop the container when you are done:
 
 ```bash
 # run on node-object

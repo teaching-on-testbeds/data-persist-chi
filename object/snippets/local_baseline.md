@@ -95,9 +95,9 @@ docker exec jupyter jupyter server list
 
 Open the printed URL in your browser, substituting the floating IP for `localhost`.
 
-In the Jupyter UI, open and run `imagefolder_local.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
+In the Jupyter UI, open `imagefolder_local.ipynb`. In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, pointing at a local directory (`/mnt/Food-11/<split>`). The DataLoader reads individual image files from the mounted volume, decodes them (PIL), applies a resize/crop/normalize transform, and batches tensors.
 
-When the benchmark prints its results, interpret the throughput metrics as follows:
+Run the notebook. When the benchmark finishes, it will write a JSON results file under `results/` and also print its results. You can interpret the throughput metrics as follows:
 
 * `imgs/s` (images per second) - higher is better. This is the main steady-state metric for how quickly the input pipeline can produce training examples.
 * `batches/s` (batches per second) - higher is better. This is the same idea as `imgs/s`, but expressed in batches.
@@ -105,9 +105,7 @@ When the benchmark prints its results, interpret the throughput metrics as follo
 
 In later parts of the lab, we will compare these same metrics across different storage and dataset formats.
 
-In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, pointing at a local directory (`/mnt/Food-11/<split>`). The DataLoader reads individual image files from the mounted volume, decodes them (PIL), applies a resize/crop/normalize transform, and batches tensors.
-
-When you are done with the local baseline, stop the container:
+When you are done with the local baseline, close the browser tab with the Jupyter service running on the instance, and then stop the container:
 
 ```bash
 # run on node-object

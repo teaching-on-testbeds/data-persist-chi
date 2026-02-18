@@ -173,9 +173,15 @@ s.execute("sudo groupadd -f docker; sudo usermod -aG docker $USER")
 ```
 :::
 
+::: {.cell .markdown}
+
+and we also install some software on the host that we will use to monitor network usage, when we are streaming to/from object store.
+
+:::
+
 ::: {.cell .code}
 ```python
-s.execute("sudo apt-get update; sudo apt-get -y install iotop nethogs")
+s.execute("sudo apt-get update; sudo apt-get -y install nload")
 ```
 :::
 

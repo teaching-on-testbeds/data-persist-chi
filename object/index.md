@@ -154,8 +154,12 @@ s.execute("curl -sSL https://get.docker.com/ | sudo sh")
 s.execute("sudo groupadd -f docker; sudo usermod -aG docker $USER")
 ```
 
+
+and we also install some software on the host that we will use to monitor network usage, when we are streaming to/from object store.
+
+
 ```python
-s.execute("sudo apt-get update; sudo apt-get -y install iotop nethogs")
+s.execute("sudo apt-get update; sudo apt-get -y install nload")
 ```
 
 
@@ -265,9 +269,9 @@ docker exec jupyter jupyter server list
 
 Open the printed URL in your browser, substituting the floating IP for `localhost`.
 
-In the Jupyter UI, open and run `imagefolder_local.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
+In the Jupyter UI, open `imagefolder_local.ipynb`. In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, pointing at a local directory (`/mnt/Food-11/<split>`). The DataLoader reads individual image files from the mounted volume, decodes them (PIL), applies a resize/crop/normalize transform, and batches tensors.
 
-When the benchmark prints its results, interpret the throughput metrics as follows:
+Run the notebook. When the benchmark finishes, it will write a JSON results file under `results/` and also print its results. You can interpret the throughput metrics as follows:
 
 * `imgs/s` (images per second) - higher is better. This is the main steady-state metric for how quickly the input pipeline can produce training examples.
 * `batches/s` (batches per second) - higher is better. This is the same idea as `imgs/s`, but expressed in batches.
@@ -275,9 +279,7 @@ When the benchmark prints its results, interpret the throughput metrics as follo
 
 In later parts of the lab, we will compare these same metrics across different storage and dataset formats.
 
-In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, pointing at a local directory (`/mnt/Food-11/<split>`). The DataLoader reads individual image files from the mounted volume, decodes them (PIL), applies a resize/crop/normalize transform, and batches tensors.
-
-When you are done with the local baseline, stop the container:
+When you are done with the local baseline, close the browser tab with the Jupyter service running on the instance, and then stop the container:
 
 ```bash
 # run on node-object
@@ -441,7 +443,7 @@ In this part, we will:
 1. Run an ETL pipeline to upload Food11 to the S3 bucket.
 2. Use the rclone mount from the previous step.
 3. Pass the mount into a Jupyter container.
-4. Run the ImageFolder benchmark.
+4. Run the ImageFolder benchmark, but this time with rclone mount that is actually a remote S3 bucket, not a local disk.
 
 
 
@@ -527,20 +529,22 @@ docker exec jupyter jupyter server list
 
 Open the printed URL in your browser, substituting the floating IP for `localhost`.
 
-In the Jupyter UI, open and run `imagefolder_rclone_mount.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
+In the Jupyter UI, open `imagefolder_rclone_mount.ipynb`. In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, but the filesystem backing it is an rclone FUSE mount of the S3 bucket. The DataLoader still does ordinary file opens and reads, but every read is translated into S3 GET requests under the hood.
 
-While the benchmark is running in the Jupyter UI, open a separate SSH terminal on the node (not inside the Jupyter container) and run:
+Before you start the benchmark in the Jupyter UI, open a separate SSH terminal on the node (not inside the Jupyter container) and run:
 
 ```bash
 # run on node-object
-sudo nethogs
+sudo nload ens3
 ```
 
-Watch the per-process network traffic and note how much bandwidth is attributable to the `rclone` mount process while the DataLoader is reading.
+to watch the network traffic while the DataLoader is reading.
 
-In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, but the filesystem backing it is an rclone FUSE mount of the S3 bucket. The DataLoader still does ordinary file opens and reads, but every read is translated into S3 GET requests under the hood.
+Run the benchmark, and take a screenshot of the `nload` output showing inbound network traffic. When the benchmark is finished, it will print the results and write a JSON results file under `results/`.
 
-Stop the container when you are done:
+Use Ctrl + C to stop the running `nload` process.
+
+Close the browser tab for the Jupyter server on the instance, and stop the container when you are done:
 
 ```bash
 # run on node-object
@@ -564,9 +568,10 @@ fusermount -u /tmp/rclone-tests/object
 
 In this part, we will read training data directly from S3 without mounting it as a filesystem.
 
-The DataLoader will load each sample by making a separate S3 request for that image. This pattern is simple, but it often performs poorly at scale because it has high per-sample overhead.
 
-We will run a benchmark notebook that uses `fsspec` to open remote objects and `PIL` to decode images.
+We will run a benchmark notebook that uses `fsspec` to open remote objects and `PIL` to decode images. In this notebook, the Dataset is a small custom `torch.utils.data.Dataset` that first lists objects once to build an index (not timed), then loads each sample by doing an S3 GET for that one image via `fsspec`, decoding with PIL, and applying the usual resize/crop/normalize transform. The DataLoader batches those decoded tensors.
+
+The DataLoader will load each sample by making a separate S3 request for that image. This pattern is simple, but it often performs poorly at scale because it has high per-sample overhead.
 
 This benchmark assumes the dataset is already uploaded as one object per image under `s3://object-chi-netID/Food-11/`, for example:
 
@@ -581,6 +586,8 @@ s3://object-chi-netID/Food-11/
       ...
     ...
 ```
+
+which we have done in the previous stage, so there is no ETL step here.
 
 
 
@@ -620,11 +627,18 @@ docker exec jupyter jupyter server list
 
 Open the printed URL in your browser, substituting the floating IP for `localhost`.
 
-In the Jupyter UI, open and run `remote_one_sample.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
+Before you start the benchmark in the Jupyter UI, open a separate SSH terminal on the node (not inside the Jupyter container) and run:
 
-In this notebook, the Dataset is a small custom `torch.utils.data.Dataset` that first lists objects once to build an index (not timed), then loads each sample by doing an S3 GET for that one image via `fsspec`, decoding with PIL, and applying the usual resize/crop/normalize transform. The DataLoader batches those decoded tensors.
+```bash
+# run on node-object
+sudo nload ens3
+```
 
-Stop the container when you are done:
+to monitor network traffic. Take a screenshot while the benchmark is running.
+
+In the Jupyter UI, open and run `remote_one_sample.ipynb`. When the benchmark finishes, it will print results and write a JSON results file under `results/`.
+
+Close the browser tab for the Jupyter server running inside the instance, and stop the container when you are done:
 
 ```bash
 # run on node-object
@@ -636,6 +650,8 @@ docker stop jupyter
 ## Sharded baseline: stream tar shards from S3
 
 In this part, we will create larger shard objects (tar files) and stream from those shards during training input.
+
+In this benchmark notebook, the Dataset is an `IterableDataset` that assigns shard files across DataLoader workers, opens each shard via `fsspec`, streams the tar entries, and yields `(image_tensor, label)` pairs. The DataLoader batches those streamed samples.
 
 Compared to reading one S3 object per sample, sharding reduces per-sample overhead by reading many samples from each shard.
 
@@ -730,13 +746,22 @@ Get the Jupyter token:
 docker exec jupyter jupyter server list
 ```
 
+It may take a few moments for the server to start (for the `pip install` to finish), so if no servers are listed in the output of that command, just wait a minute and then try again.
+
 Open the printed URL in your browser, substituting the floating IP for `localhost`.
 
-In the Jupyter UI, open and run `webdataset.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
+Before you start the benchmark in the Jupyter UI, open a separate SSH terminal on the node (not inside the Jupyter container) and run:
 
-In this notebook, the Dataset is an `IterableDataset` that assigns shard files across DataLoader workers, opens each shard via `fsspec`, streams the tar entries, and yields `(image_tensor, label)` pairs. The DataLoader batches those streamed samples.
+```bash
+# run on node-object
+sudo nload ens3
+```
 
-Stop the container when you are done:
+to monitor network traffic. Take a screenshot while the benchmark is running. You may notice a different network access pattern than in your previous tests!
+
+In the Jupyter UI, open and run `webdataset.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`.
+
+Close the browser tab for the Jupyter server running inside the instance, and stop the container when you are done:
 
 ```bash
 # run on node-object

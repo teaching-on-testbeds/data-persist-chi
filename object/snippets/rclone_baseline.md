@@ -8,7 +8,7 @@ In this part, we will:
 1. Run an ETL pipeline to upload Food11 to the S3 bucket.
 2. Use the rclone mount from the previous step.
 3. Pass the mount into a Jupyter container.
-4. Run the ImageFolder benchmark.
+4. Run the ImageFolder benchmark, but this time with rclone mount that is actually a remote S3 bucket, not a local disk.
 
 :::
 
@@ -98,20 +98,22 @@ docker exec jupyter jupyter server list
 
 Open the printed URL in your browser, substituting the floating IP for `localhost`.
 
-In the Jupyter UI, open and run `imagefolder_rclone_mount.ipynb`. When the benchmark finishes, it will write a JSON results file under `results/`.
+In the Jupyter UI, open `imagefolder_rclone_mount.ipynb`. In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, but the filesystem backing it is an rclone FUSE mount of the S3 bucket. The DataLoader still does ordinary file opens and reads, but every read is translated into S3 GET requests under the hood.
 
-While the benchmark is running in the Jupyter UI, open a separate SSH terminal on the node (not inside the Jupyter container) and run:
+Before you start the benchmark in the Jupyter UI, open a separate SSH terminal on the node (not inside the Jupyter container) and run:
 
 ```bash
 # run on node-object
-sudo nethogs
+sudo nload ens3
 ```
 
-Watch the per-process network traffic and note how much bandwidth is attributable to the `rclone` mount process while the DataLoader is reading.
+to watch the network traffic while the DataLoader is reading.
 
-In this notebook, the Dataset is `torchvision.datasets.ImageFolder`, but the filesystem backing it is an rclone FUSE mount of the S3 bucket. The DataLoader still does ordinary file opens and reads, but every read is translated into S3 GET requests under the hood.
+Run the benchmark, and take a screenshot of the `nload` output showing inbound network traffic. When the benchmark is finished, it will print the results and write a JSON results file under `results/`.
 
-Stop the container when you are done:
+Use Ctrl + C to stop the running `nload` process.
+
+Close the browser tab for the Jupyter server on the instance, and stop the container when you are done:
 
 ```bash
 # run on node-object
