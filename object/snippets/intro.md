@@ -11,6 +11,15 @@ To run this experiment, you should have already created an account on Chameleon,
 
 ::: {.cell .markdown}
 
+## Experiment materials
+
+* The ETL jobs in this experiment are executed using Docker compose. You can find those configurations at [object/docker](https://github.com/teaching-on-testbeds/data-persist-chi/tree/main/object/docker)
+* We will benchmark different training data input strategies using the Python notebooks at [object/workspace](https://github.com/teaching-on-testbeds/data-persist-chi/tree/main/object/workspace)
+
+:::
+
+::: {.cell .markdown}
+
 ## Experiment resources 
 
 For this experiment, we will provision 
