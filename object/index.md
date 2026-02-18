@@ -717,6 +717,14 @@ To free disk space after you finish the load step, remove the local shard output
 docker volume rm food11-webdataset_wds_out
 ```
 
+If Docker says the volume is in use, remove the stopped container(s) that still reference it, then try again:
+
+```bash
+# run on node-object
+docker ps -a --filter volume=food11-webdataset_wds_out --format "{{.ID}}" | xargs -r docker rm -f
+docker volume rm food11-webdataset_wds_out
+```
+
 
 
 ### Run Jupyter with S3 credentials as environment variables
@@ -845,6 +853,14 @@ To free disk space after you finish the load step, remove the local LitData outp
 docker volume rm food11-litdata_lit_out
 ```
 
+If Docker says the volume is in use, remove the stopped container(s) that still reference it, then try again:
+
+```bash
+# run on node-object
+docker ps -a --filter volume=food11-litdata_lit_out --format "{{.ID}}" | xargs -r docker rm -f
+docker volume rm food11-litdata_lit_out
+```
+
 
 
 ### Run Jupyter with S3 credentials as environment variables
@@ -900,7 +916,7 @@ In the Jupyter UI, open and run `litdata_streaming.ipynb`. When the benchmark fi
 
 Note that it will also create a `litdata_cache` directory in the workspace. It will keep chunks there (on the local disk) so they don't *always* have to be streamed from the remote object storage.
 
-Run the benchmark notebook *again* and note the results; it can be substantially faster on this run, since some of the data is already cached. Take a screenshot. You may notice that less data is transferred over the network on the second run.
+Run the benchmark notebook *again* and note the results; it can be substantially faster on this run, since some of the data is already cached. Take a screenshot. You may notice that less data is transferred over the network on the second run. We can tune `max_cache_size` and `max_pre_download` in the `StreamingDataset` to manage the tradeoff between network and local disk use.
 
 Close the browser tab and stop the container when you are done:
 
