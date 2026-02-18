@@ -498,7 +498,7 @@ Run the load stage:
 docker compose -f ~/data-persist-chi/object/docker/load.yaml run --rm load-data
 ```
 
-After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to "Object Store" > "Containers". Click on your container (`object-chi-netID`) and you should see a `Food-11/` prefix. Inside it, expect `training/`, `validation/`, and `evaluation/`, each with `class_XX/` subdirectories and JPEG images.
+After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to "Object Store" > "Containers". Click on your container (`object-chi-netID`) and you should see a `Food-11/` prefix. Inside it, expect `training/`, `validation/`, and `evaluation/`, each with `class_XX/` subdirectories and JPEG images. Take a screenshot for later reference.
 
 Confirm the upload by listing the mount (we expect a `Food-11/` directory):
 
@@ -715,7 +715,7 @@ Load the shards to S3:
 docker compose -f ~/data-persist-chi/object/docker/wds.yaml run --rm load-webdataset
 ```
 
-After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to "Object Store" > "Containers". Click on your container (`object-chi-netID`) and you should see a `Food-11-webdataset/` prefix. Inside it, expect `training/`, `validation/`, and `evaluation/` directories with multiple `shard-*.tar` objects.
+After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to "Object Store" > "Containers". Click on your container (`object-chi-netID`) and you should see a `Food-11-webdataset/` prefix. Inside it, expect `training/`, `validation/`, and `evaluation/` directories with multiple `shard-*.tar` objects. Take a screenshot for later reference.
 
 Note: it is normal to occasionally see transient upload errors like "source file is being updated (size changed...)". This can happen if a shard is still being finalized while rclone starts uploading. It is fine as long as rclone succeeds on a retry and the final output shows 100% of shards transferred.
 
@@ -853,7 +853,7 @@ Load the optimized dataset to S3:
 docker compose -f ~/data-persist-chi/object/docker/lit.yaml run --rm load-litdata
 ```
 
-After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to "Object Store" > "Containers". Click on your container (`object-chi-netID`) and you should see a `Food-11-litdata/` prefix. Inside it, expect `training/`, `validation/`, and `evaluation/` directories containing LitData metadata and chunk files.
+After the load step finishes, open the Horizon GUI for CHI@TACC and navigate to "Object Store" > "Containers". Click on your container (`object-chi-netID`) and you should see a `Food-11-litdata/` prefix. Inside it, expect `training/`, `validation/`, and `evaluation/` directories containing LitData metadata and chunk files. Take a screenshot for later reference.
 
 To free disk space after you finish the load step, remove the local LitData output volume:
 
@@ -919,7 +919,7 @@ Before you start the benchmark in the Jupyter UI, open a separate SSH terminal o
 sudo nload ens3
 ``` 
     
-to monitor network traffic. Take a screenshot while the benchmark is running. 
+to monitor network traffic. In particular, note the current (`Curr`) incoming data rate shown to the side of the ASCII plot. Take a screenshot while the benchmark is running.
   
 In the Jupyter UI, open and run `litdata_streaming.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
