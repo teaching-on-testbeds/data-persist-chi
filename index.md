@@ -1571,6 +1571,14 @@ To free disk space after you finish the load step, remove the local shard output
 docker volume rm food11-webdataset_wds_out
 ```
 
+If Docker says the volume is in use, remove the stopped container(s) that still reference it, then try again:
+
+```bash
+# run on node-object
+docker ps -a --filter volume=food11-webdataset_wds_out --format "{{.ID}}" | xargs -r docker rm -f
+docker volume rm food11-webdataset_wds_out
+```
+
 
 
 ### Run Jupyter with S3 credentials as environment variables
@@ -1696,6 +1704,14 @@ To free disk space after you finish the load step, remove the local LitData outp
 
 ```bash
 # run on node-object
+docker volume rm food11-litdata_lit_out
+```
+
+If Docker says the volume is in use, remove the stopped container(s) that still reference it, then try again:
+
+```bash
+# run on node-object
+docker ps -a --filter volume=food11-litdata_lit_out --format "{{.ID}}" | xargs -r docker rm -f
 docker volume rm food11-litdata_lit_out
 ```
 
