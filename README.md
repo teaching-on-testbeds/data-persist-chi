@@ -9,12 +9,10 @@ To run this experiment, you should have already created an account on Chameleon,
 
 Follow along at [Persistent storage on Chameleon](https://teaching-on-testbeds.github.io/data-persist-chi/).
 
-Then choose:
+Then proceed with:
 
 * [Block storage](https://teaching-on-testbeds.github.io/data-persist-chi/block/)
 * [Object storage](https://teaching-on-testbeds.github.io/data-persist-chi/object/)
-
-This lab uses: one VM at KVM@TACC with a floating IP, plus either a block storage volume (block part) or an object storage bucket at CHI@TACC (object part).
 
 ---
 
