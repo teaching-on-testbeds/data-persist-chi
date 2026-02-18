@@ -74,7 +74,7 @@ In the following command:
 * replace **SECRET_ACCESS_KEY** with your EC2 Secret
 * replace **netID** in the bucket name
 
-This step also installs `litdata` in the Jupyter container before starting the notebook server.
+This step installs `litdata` in the Jupyter container before starting the notebook server.
 
 ```bash
 # run on node-object
@@ -86,11 +86,11 @@ docker run -d --rm \
   -e S3_ENDPOINT_URL=https://chi.tacc.chameleoncloud.org:7480 \
   -e S3_BUCKET=object-chi-netID \
   -e S3_PREFIX=Food-11-litdata \
-  -e FOOD11_SPLIT=evaluation \
+  -e FOOD11_SPLIT=training \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   --name jupyter \
   quay.io/jupyter/pytorch-notebook:latest \
-  bash -lc "pip -q install lightning-utilities==0.15.2 && pip -q install --no-deps litdata==0.2.32 && start-notebook.sh"
+  bash -lc "pip -q install litdata==0.2.60 && start-notebook.py"
 ```
 
 Get the Jupyter token:

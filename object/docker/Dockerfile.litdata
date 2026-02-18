@@ -1,12 +1,11 @@
-FROM python:3.11-slim
+FROM quay.io/jupyter/pytorch-notebook:latest
+
+USER root
 
 WORKDIR /work
 
 RUN python -m pip install --no-cache-dir --upgrade pip \
   && python -m pip install --no-cache-dir \
-    pillow==10.4.0 \
-    tqdm==4.66.5 \
-    lightning-utilities==0.15.2 \
-    litdata==0.2.32 --no-deps
+    litdata==0.2.60
 
 CMD ["python", "-c", "print('litdata optimize image ready')"]

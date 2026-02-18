@@ -27,7 +27,7 @@ username = os.getenv('USER') # all exp resources will have this prefix
 
 ::: {.cell .markdown}
 
-We will bring up a `m1.large` flavor server with the `CC-Ubuntu24.04` disk image. 
+We will bring up a `m1.xlarge` flavor server with the `CC-Ubuntu24.04` disk image. 
 
 > **Note**: the following cell brings up a server only if you don't already have one with the same name! (Regardless of its error state.) If you have a server in ERROR state already, delete it first in the Horizon GUI before you run this cell.
 
@@ -43,7 +43,7 @@ First we will reserve the VM instance for 4 hours, starting now:
 ::: {.cell .code}
 ```python
 l = lease.Lease(f"lease-object-{username}", duration=datetime.timedelta(hours=4))
-l.add_flavor_reservation(id=chi.server.get_flavor_id("m1.large"), amount=1)
+l.add_flavor_reservation(id=chi.server.get_flavor_id("m1.xlarge"), amount=1)
 l.submit(idempotent=True)
 ```
 :::

@@ -47,11 +47,11 @@ docker run -d --rm \
   -e S3_ENDPOINT_URL=https://chi.tacc.chameleoncloud.org:7480 \
   -e S3_BUCKET=object-chi-netID \
   -e S3_PREFIX=Food-11 \
-  -e FOOD11_SPLIT=evaluation \
+  -e FOOD11_SPLIT=training \
   -v ${HOME}/data-persist-chi/object/workspace:/home/jovyan/work \
   --name jupyter \
   quay.io/jupyter/pytorch-notebook:latest \
-  bash -lc "pip -q install s3fs && start-notebook.sh"
+  bash -lc "pip -q install s3fs && start-notebook.py"
 ```
 
 Get the Jupyter token:
