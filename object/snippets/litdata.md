@@ -130,7 +130,7 @@ Before you start the benchmark in the Jupyter UI, open a separate SSH terminal o
 sudo nload ens3
 ``` 
     
-to monitor network traffic. Take a screenshot while the benchmark is running. 
+to monitor network traffic. In particular, note the current (`Curr`) incoming data rate shown to the side of the ASCII plot. Take a screenshot while the benchmark is running.
   
 In the Jupyter UI, open and run `litdata_streaming.ipynb`. When the benchmark finishes, it will print the results and write a JSON results file under `results/`. Download the JSON file from the `results/` folder in the Jupyter file browser.
 
