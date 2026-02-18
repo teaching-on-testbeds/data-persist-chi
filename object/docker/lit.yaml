@@ -11,6 +11,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.litdata
+    user: root
     environment:
       - LITDATA_CHUNK_BYTES=64MB
       - LITDATA_NUM_WORKERS=4
