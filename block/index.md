@@ -752,8 +752,6 @@ Next, associate a floating IP so that we can SSH to the instance:
 
 ```python
 # run in Chameleon Jupyter environment
-# python-chi's server wrapper does not work reliably for boot-from-volume instances,
-# so we use the OpenStack SDK connection to allocate and attach a floating IP.
 server = os_conn.compute.find_server(f"node-bootable-{username}")
 sharednet = os_conn.network.find_network("sharednet1")
 port = next(p for p in os_conn.network.ports(device_id=server.id) if p.network_id == sharednet.id)
